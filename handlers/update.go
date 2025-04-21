@@ -20,7 +20,8 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}

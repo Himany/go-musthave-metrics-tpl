@@ -32,7 +32,7 @@ func TestWebhook(t *testing.T) {
 		//Контент
 		{name: "[Контент] Тест", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
 		{name: "[Контент] Json", method: http.MethodPost, expectedCode: http.StatusUnsupportedMediaType, expectedBody: "", contentType: "application/json", metricType: "gauge", metricName: "test", metricValue: "1"},
-		{name: "[Контент] Пусто", method: http.MethodPost, expectedCode: http.StatusUnsupportedMediaType, expectedBody: "", contentType: "", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "[Контент] Пусто", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "", metricType: "gauge", metricName: "test", metricValue: "1"},
 
 		//Данные
 		{name: "[Параметры] Отсутствует тип метрики", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "", metricName: "test", metricValue: "1"},
