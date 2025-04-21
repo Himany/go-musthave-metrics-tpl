@@ -13,10 +13,8 @@ func Run(handler *handlers.Handler) error {
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", handler.GetAllMetrics)
-		r.Route("/update/", func(r chi.Router) {
-			r.Get("/{type}/{name}", handler.GetMetric)
-			r.Post("/{type}/{name}/{value}", handler.UpdateHandler)
-		})
+		r.Get("/value/{type}/{name}", handler.GetMetric)
+		r.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
 	})
 
 	return http.ListenAndServe(":8080", r)
