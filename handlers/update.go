@@ -24,7 +24,7 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pathValues := strings.Split(r.URL.Path, "/")
-	if len(pathValues) < 5 {
+	if len(pathValues) < 5 || pathValues[4] == "" || pathValues[3] == "" || pathValues[2] == "" {
 		if len(pathValues) < 4 || pathValues[3] == "" {
 			w.WriteHeader(http.StatusNotFound)
 			return
