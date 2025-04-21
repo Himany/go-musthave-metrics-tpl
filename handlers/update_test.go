@@ -12,7 +12,7 @@ import (
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
-func TestWebhook(t *testing.T) {
+func TestUpdate(t *testing.T) {
 	testCases := []struct {
 		name         string
 		method       string

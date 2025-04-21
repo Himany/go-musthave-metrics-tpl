@@ -5,6 +5,8 @@ type Storage interface {
 	UpdateCounter(name string, value int64)
 	GetGauge(name string) (float64, bool)
 	GetCounter(name string) (int64, bool)
+	GetKeyGauge() []string
+	GetKeyCounter() []string
 }
 
 type MemStorage struct {
@@ -32,7 +34,23 @@ func (s *MemStorage) GetGauge(name string) (float64, bool) {
 	return val, ok
 }
 
+func (s *MemStorage) GetKeyGauge() []string {
+	keys := make([]string, 0, len(s.Gauge))
+	for key := range s.Gauge {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 func (s *MemStorage) GetCounter(name string) (int64, bool) {
 	val, ok := s.Counter[name]
 	return val, ok
+}
+
+func (s *MemStorage) GetKeyCounter() []string {
+	keys := make([]string, 0, len(s.Counter))
+	for key := range s.Counter {
+		keys = append(keys, key)
+	}
+	return keys
 }

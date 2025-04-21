@@ -14,12 +14,85 @@ type Handler struct {
 	Repo storage.Storage
 }
 
-func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+func getStringValue(h *Handler, metricType string, metricName string) (string, bool) {
+	result := ""
+
+	switch metricType {
+	case "gauge":
+		value, ok := h.Repo.GetGauge(metricName)
+		if ok {
+			result = strconv.FormatFloat(value, 'f', -1, 64)
+		}
+		return result, ok
+
+	case "counter":
+		value, ok := h.Repo.GetCounter(metricName)
+		if ok {
+			result = strconv.FormatInt(value, 10)
+		}
+		return result, ok
+
+	default:
+		return "", false
+	}
+}
+
+func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
 
+	metricType := chi.URLParam(r, "type")
+	metricName := chi.URLParam(r, "name")
+	if metricName == "" || metricType == "" {
+		if metricName == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	value, isOk := getStringValue(h, metricType, metricName)
+	if !isOk {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(value))
+}
+
+func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	list := make([]string, 0)
+	for _, item := range h.Repo.GetKeyGauge() {
+		value, ok := getStringValue(h, "gauge", item)
+		if ok {
+			list = append(list, (item + ": " + value + ";"))
+		}
+	}
+	for _, item := range h.Repo.GetKeyCounter() {
+		value, ok := getStringValue(h, "counter", item)
+		if ok {
+			list = append(list, (item + ": " + value + ";"))
+		}
+	}
+	resultString := strings.Join(list, "\n")
+
+	w.Header().Set("Content-Type", "text/plain")
+	_, _ = w.Write([]byte(resultString))
+}
+
+func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)

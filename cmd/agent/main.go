@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	PollCount = 0
-	url       = "http://localhost:8080/update"
-	metrics   = make(map[string]float64)
+	PollCount int64 = 0
+	url             = "http://localhost:8080/update"
+	metrics         = make(map[string]float64)
 	mu        sync.Mutex
 	client    = resty.New()
 )
@@ -81,7 +81,7 @@ func reportHandler(reportInterval int) {
 		for key, value := range metrics {
 			createRequest("gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
 		}
-		createRequest("counter", "PollCount", strconv.Itoa(PollCount))
+		createRequest("counter", "PollCount", strconv.FormatInt(PollCount, 10))
 		mu.Unlock()
 
 		time.Sleep(time.Duration(reportInterval) * time.Second)
