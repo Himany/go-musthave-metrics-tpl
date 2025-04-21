@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
@@ -36,7 +37,7 @@ func TestWebhook(t *testing.T) {
 		//Данные
 		{name: "[Параметры] Отсутствует тип метрики", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "", metricName: "test", metricValue: "1"},
 		{name: "[Параметры] Отсутствует название метрики", method: http.MethodPost, expectedCode: http.StatusNotFound, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "", metricValue: "1"},
-		{name: "[Параметры] Отсутствует значение метрики", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: ""},
+		{name: "[Параметры] Отсутствует значение метрики", method: http.MethodPost, expectedCode: http.StatusNotFound, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: ""},
 
 		//Разные типы метрик
 		{name: "[Типы] Проверка типа gauge", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "12.32"},
@@ -54,14 +55,17 @@ func TestWebhook(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
+			memStorage := storage.NewMemStorage()
+			handler := &Handler{Repo: memStorage}
+
+			router := chi.NewRouter()
+			router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+
 			r := httptest.NewRequest(tc.method, "/update/"+tc.metricType+"/"+tc.metricName+"/"+tc.metricValue, nil)
 			r.Header.Set("Content-Type", tc.contentType)
 
 			w := httptest.NewRecorder()
-
-			memStorage := storage.NewMemStorage()
-			handler := &Handler{Repo: memStorage}
-			handler.UpdateHandler(w, r)
+			router.ServeHTTP(w, r)
 
 			assert.Equal(t, tc.expectedCode, w.Code, fmt.Sprintf("[Код ответа не совпадает с ожидаемым] %s", tc.name))
 

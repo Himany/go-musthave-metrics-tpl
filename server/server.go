@@ -3,11 +3,13 @@ package server
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/Himany/go-musthave-metrics-tpl/handlers"
 )
 
 func Run(handler *handlers.Handler) error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/update/", handler.UpdateHandler)
-	return http.ListenAndServe(":8080", mux)
+	r := chi.NewRouter()
+	r.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+	return http.ListenAndServe(":8080", r)
 }

@@ -1,14 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand/v2"
-	"net/http"
 	"runtime"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/go-resty/resty/v2"
 )
 
 var (
@@ -16,16 +16,22 @@ var (
 	url       = "http://localhost:8080/update"
 	metrics   = make(map[string]float64)
 	mu        sync.Mutex
+	client    = resty.New()
 )
 
 func createRequest(metricType string, name string, value string) {
-	resp, err := http.Post(url+"/"+metricType+"/"+name+"/"+value, "text/plain", bytes.NewBuffer(nil))
+	resp, err := client.R().
+		SetHeader("Content-Type", "text/plain").
+		SetPathParams(map[string]string{
+			"mType":  metricType,
+			"mName":  name,
+			"mValue": value,
+		}).Post(url + "/{mType}/{mName}/{mValue}")
 	if err != nil {
 		fmt.Printf("Ошибка (%s): %v\n", url+"/"+metricType+"/"+name+"/"+value, err)
 		return
 	}
-	fmt.Printf("%s: %s\n", url+"/"+metricType+"/"+name+"/"+value, resp.Status)
-	resp.Body.Close()
+	fmt.Printf("%s: %d\n", url+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
 }
 
 func metricHandler(pollInterval int) {

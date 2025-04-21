@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
@@ -23,19 +25,18 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pathValues := strings.Split(r.URL.Path, "/")
-	if len(pathValues) < 5 || pathValues[4] == "" || pathValues[3] == "" || pathValues[2] == "" {
-		if len(pathValues) < 4 || pathValues[3] == "" {
+	metricType := chi.URLParam(r, "type")
+	metricName := chi.URLParam(r, "name")
+	metricValue := chi.URLParam(r, "value")
+
+	if metricValue == "" || metricName == "" || metricType == "" {
+		if metricName == "" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	metricType := pathValues[2]
-	metricName := pathValues[3]
-	metricValue := pathValues[4]
 
 	status := h.updateData(metricType, metricName, metricValue)
 
