@@ -13,6 +13,12 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
+	memStorage := storage.NewMemStorage()
+	handler := &Handler{Repo: memStorage}
+
+	router := chi.NewRouter()
+	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+
 	testCases := []struct {
 		name         string
 		method       string
@@ -55,12 +61,6 @@ func TestUpdate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.method, func(t *testing.T) {
-			memStorage := storage.NewMemStorage()
-			handler := &Handler{Repo: memStorage}
-
-			router := chi.NewRouter()
-			router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
-
 			r := httptest.NewRequest(tc.method, "/update/"+tc.metricType+"/"+tc.metricName+"/"+tc.metricValue, nil)
 			r.Header.Set("Content-Type", tc.contentType)
 
@@ -74,4 +74,97 @@ func TestUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetMetric(t *testing.T) {
+	memStorage := storage.NewMemStorage()
+	handler := &Handler{Repo: memStorage}
+
+	router := chi.NewRouter()
+	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+	router.Get("/value/{type}/{name}", handler.GetMetric)
+
+	testCases := []struct {
+		name            string
+		expectedCodeAdd int
+		expectedCodeGet int
+		metricType      string
+		metricName      string
+		metricValue     string
+	}{
+		{name: "Добавления ноля (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f1", metricValue: "0"},
+		{name: "Добавления положительного целого числа (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f2", metricValue: "42"},
+		{name: "Добавления отрицательного целого числа (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f3", metricValue: "-42"},
+		{name: "Добавления положительного числа с плавающей точкой (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f4", metricValue: "42.2"},
+		{name: "Добавления отрицательного числа с плавающей точкой (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f5", metricValue: "-42.2"},
+		{name: "Добавления ноля (int64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i1", metricValue: "0"},
+		{name: "Добавления положительного целого числа (int64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i2", metricValue: "42"},
+		{name: "Добавления отрицательного целого числа (int64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i3", metricValue: "-42"},
+		{name: "Добавления положительного числа с плавающей точкой (int64)", expectedCodeAdd: http.StatusBadRequest, expectedCodeGet: http.StatusNotFound, metricType: "counter", metricName: "i4", metricValue: "42.2"},
+		{name: "Добавления отрицательного числа с плавающей точкой (int64)", expectedCodeAdd: http.StatusBadRequest, expectedCodeGet: http.StatusNotFound, metricType: "counter", metricName: "i5", metricValue: "-42.2"},
+	}
+
+	for index, tc := range testCases {
+		t.Run(fmt.Sprintf("TestGetMetric: #%d", index), func(t *testing.T) {
+			//post
+			rPost := httptest.NewRequest(http.MethodPost, "/update/"+tc.metricType+"/"+tc.metricName+"/"+tc.metricValue, nil)
+			rPost.Header.Set("Content-Type", "text/plain")
+
+			wPost := httptest.NewRecorder()
+			router.ServeHTTP(wPost, rPost)
+
+			assert.Equal(t, tc.expectedCodeAdd, wPost.Code, fmt.Sprintf("[Код ответа не совпадает с ожидаемым (ADD)] %s", tc.name))
+
+			//get
+			rGet := httptest.NewRequest(http.MethodGet, "/value/"+tc.metricType+"/"+tc.metricName, nil)
+
+			wGet := httptest.NewRecorder()
+			router.ServeHTTP(wGet, rGet)
+
+			assert.Equal(t, tc.expectedCodeGet, wGet.Code, fmt.Sprintf("[Код ответа не совпадает с ожидаемым (GET)] %s", tc.name))
+		})
+	}
+}
+
+func TestGetAllMetrics(t *testing.T) {
+	memStorage := storage.NewMemStorage()
+	handler := &Handler{Repo: memStorage}
+
+	router := chi.NewRouter()
+	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+	router.Get("/", handler.GetAllMetrics)
+
+	// Метрики для добавления
+	metrics := []struct {
+		metricType  string
+		metricName  string
+		metricValue string
+	}{
+		{metricType: "gauge", metricName: "TestGaugeMetric", metricValue: "100.5"},
+		{metricType: "counter", metricName: "TestCounterMetric", metricValue: "42"},
+	}
+
+	for _, m := range metrics {
+		req := httptest.NewRequest(http.MethodPost, "/update/"+m.metricType+"/"+m.metricName+"/"+m.metricValue, nil)
+		req.Header.Set("Content-Type", "text/plain")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "[POST] Код ответа не совпадает при добавлении метрики %s", m.metricName)
+	}
+
+	t.Run("[Метрики] Проверка получения всех метрик", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code, "[GET /] Код ответа не совпадает")
+
+		body := w.Body.String()
+
+		assert.Contains(t, body, "TestGaugeMetric: 100.5;", "Отсутствует gauge-метрика в списке")
+		assert.Contains(t, body, "TestCounterMetric: 42;", "Отсутствует counter-метрика в списке")
+	})
 }

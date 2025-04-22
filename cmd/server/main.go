@@ -7,10 +7,12 @@ import (
 )
 
 func main() {
+	parseFlags()
+
 	memStorage := storage.NewMemStorage()
 	handler := &handlers.Handler{Repo: memStorage}
 
-	if err := server.Run(handler); err != nil {
+	if err := server.Run(handler, flagRunAddr); err != nil {
 		panic(err)
 	}
 }

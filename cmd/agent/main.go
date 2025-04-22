@@ -13,7 +13,7 @@ import (
 
 var (
 	PollCount int64 = 0
-	url             = "http://localhost:8080/update"
+	url             = "http://" + flagRunAddr + "/update"
 	metrics         = make(map[string]float64)
 	mu        sync.Mutex
 	client    = resty.New()
@@ -89,11 +89,10 @@ func reportHandler(reportInterval int) {
 }
 
 func main() {
-	pollInterval := 2
-	reportInterval := 10
+	parseFlags()
 
-	go metricHandler(pollInterval)
-	go reportHandler(reportInterval)
+	go metricHandler(flagPollInterval)
+	go reportHandler(flagReportInterval)
 
 	select {}
 }

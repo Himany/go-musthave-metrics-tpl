@@ -8,14 +8,12 @@ import (
 	"github.com/Himany/go-musthave-metrics-tpl/handlers"
 )
 
-func Run(handler *handlers.Handler) error {
+func Run(handler *handlers.Handler, flagRunAddr string) error {
 	r := chi.NewRouter()
 
-	r.Route("/", func(r chi.Router) {
-		r.Get("/", handler.GetAllMetrics)
-		r.Get("/value/{type}/{name}", handler.GetMetric)
-		r.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
-	})
+	r.Get("/", handler.GetAllMetrics)
+	r.Get("/value/{type}/{name}", handler.GetMetric)
+	r.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
 
-	return http.ListenAndServe(":8080", r)
+	return http.ListenAndServe(flagRunAddr, r)
 }
