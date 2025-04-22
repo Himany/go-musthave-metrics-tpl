@@ -13,4 +13,6 @@ func parseFlags() {
 	flag.IntVar(&flagReportInterval, "r", 10, "Frequency of sending metrics to the server")
 	flag.IntVar(&flagPollInterval, "p", 2, "The frequency of polling metrics from the runtime package")
 	flag.Parse()
+
+	url = "http://" + flagRunAddr + "/update"
 }

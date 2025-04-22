@@ -13,7 +13,7 @@ import (
 
 var (
 	PollCount int64 = 0
-	url             = "http://" + flagRunAddr + "/update"
+	url             = "" //"http://localhost:8080/update"
 	metrics         = make(map[string]float64)
 	mu        sync.Mutex
 	client    = resty.New()
