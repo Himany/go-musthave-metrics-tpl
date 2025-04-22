@@ -11,30 +11,37 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+type AgentConfig struct {
+	URL            string
+	PollInterval   int
+	ReportInterval int
+	Client         *resty.Client
+}
+
 var (
 	PollCount int64 = 0
-	url             = "" //"http://localhost:8080/update"
 	metrics         = make(map[string]float64)
 	mu        sync.Mutex
-	client    = resty.New()
 )
 
-func createRequest(metricType string, name string, value string) {
-	resp, err := client.R().
+func createRequest(cfg *AgentConfig, metricType, name, value string) {
+	resp, err := cfg.Client.R().
 		SetHeader("Content-Type", "text/plain").
 		SetPathParams(map[string]string{
 			"mType":  metricType,
 			"mName":  name,
 			"mValue": value,
-		}).Post(url + "/{mType}/{mName}/{mValue}")
+		}).
+		Post(cfg.URL + "/{mType}/{mName}/{mValue}")
+
 	if err != nil {
-		fmt.Printf("Ошибка (%s): %v\n", url+"/"+metricType+"/"+name+"/"+value, err)
+		fmt.Printf("Ошибка (%s): %v\n", cfg.URL+"/"+metricType+"/"+name+"/"+value, err)
 		return
 	}
-	fmt.Printf("%s: %d\n", url+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
+	fmt.Printf("%s: %d\n", cfg.URL+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
 }
 
-func metricHandler(pollInterval int) {
+func metricHandler(interval int) {
 	var s runtime.MemStats
 
 	for {
@@ -71,28 +78,32 @@ func metricHandler(pollInterval int) {
 		PollCount++
 		mu.Unlock()
 
-		time.Sleep(time.Duration(pollInterval) * time.Second)
+		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }
 
-func reportHandler(reportInterval int) {
+func reportHandler(cfg *AgentConfig) {
 	for {
 		mu.Lock()
 		for key, value := range metrics {
-			createRequest("gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
+			createRequest(cfg, "gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
 		}
-		createRequest("counter", "PollCount", strconv.FormatInt(PollCount, 10))
+		createRequest(cfg, "counter", "PollCount", strconv.FormatInt(PollCount, 10))
 		mu.Unlock()
 
-		time.Sleep(time.Duration(reportInterval) * time.Second)
+		time.Sleep(time.Duration(cfg.ReportInterval) * time.Second)
 	}
 }
 
 func main() {
-	parseFlags()
+	cfg, err := parseConfig()
+	if err != nil {
+		fmt.Printf("ошибка инициализации: %v\n", err)
+		return
+	}
 
-	go metricHandler(flagPollInterval)
-	go reportHandler(flagReportInterval)
+	go metricHandler(cfg.PollInterval)
+	go reportHandler(cfg)
 
 	select {}
 }

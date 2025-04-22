@@ -12,7 +12,7 @@ func main() {
 	memStorage := storage.NewMemStorage()
 	handler := &handlers.Handler{Repo: memStorage}
 
-	if err := server.Run(handler, flagRunAddr); err != nil {
+	if err := server.Run(handler, runAddr); err != nil {
 		panic(err)
 	}
 }
