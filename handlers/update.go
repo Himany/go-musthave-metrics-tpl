@@ -14,7 +14,7 @@ type Handler struct {
 	repo storage.Storage
 }
 
-func getStringValue(h *Handler, metricType string, metricName string) (string, bool) {
+func (h *Handler) getStringValue(metricType string, metricName string) (string, bool) {
 	result := ""
 
 	switch metricType {
