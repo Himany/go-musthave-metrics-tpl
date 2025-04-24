@@ -65,7 +65,9 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(value))
+	if _, err = w.Write([]byte(value)); err != nil {
+	    log.Error(err)
+	}
 }
 
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
