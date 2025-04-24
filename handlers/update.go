@@ -122,29 +122,29 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(status)
 }
 
-func (h *Handler) updateData(metricType, metricName, metricValue string) int {
+func (h *Handler) updateData(metricType, metricName, metricValue string) error {
 	switch metricType {
 	case "gauge":
 		val, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
-			return http.StatusBadRequest
+			return fmt.Errorf("error parsing float: %w", err)
 		}
 		h.Repo.UpdateGauge(metricName, val)
-		return http.StatusOK
+		return nil
 
 	case "counter":
 		val, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
-			return http.StatusBadRequest
+			return fmt.Errorf("error parsing int: %w", err)
 		}
 		old, ok := h.Repo.GetCounter(metricName)
 		if ok {
 			val += old
 		}
 		h.Repo.UpdateCounter(metricName, val)
-		return http.StatusOK
+		return nil
 
 	default:
-		return http.StatusBadRequest
+		return fmt.Errorf("unknown metric type: %s", metricType)
 	}
 }
