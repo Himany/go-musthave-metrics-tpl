@@ -107,11 +107,11 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue := chi.URLParam(r, "value")
 
-	if metricValue == "" || metricName == "" || metricType == "" {
-		if metricName == "" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	if metricName == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if metricValue == "" || metricType == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
