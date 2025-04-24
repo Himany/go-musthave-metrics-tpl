@@ -11,7 +11,7 @@ import (
 )
 
 type Handler struct {
-	Repo storage.Storage
+	repo storage.Storage
 }
 
 func getStringValue(h *Handler, metricType string, metricName string) (string, bool) {
