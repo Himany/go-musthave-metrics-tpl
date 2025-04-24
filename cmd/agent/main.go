@@ -88,8 +88,8 @@ func reportHandler(cfg *AgentConfig) {
 		for key, value := range metrics {
 			createRequest(cfg, "gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
 		}
-		createRequest(cfg, "counter", "PollCount", strconv.FormatInt(PollCount, 10))
 		mu.Unlock()
+		createRequest(cfg, "counter", "PollCount", strconv.FormatInt(PollCount, 10))
 
 		time.Sleep(time.Duration(cfg.ReportInterval) * time.Second)
 	}
