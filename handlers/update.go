@@ -47,11 +47,12 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
-	if metricName == "" || metricType == "" {
-		if metricName == "" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	if metricName == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if metricType == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
