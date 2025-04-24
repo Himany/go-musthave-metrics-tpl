@@ -20,9 +20,10 @@ func (h *Handler) getStringValue(metricType string, metricName string) (string, 
 	switch metricType {
 	case "gauge":
 		value, ok := h.Repo.GetGauge(metricName)
-		if ok {
-			result = strconv.FormatFloat(value, 'f', -1, 64)
+		if !ok {
+			return "", false
 		}
+		result = strconv.FormatFloat(value, 'f', -1, 64)
 		return result, ok
 
 	case "counter":
