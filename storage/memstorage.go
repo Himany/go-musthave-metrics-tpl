@@ -30,7 +30,8 @@ func (s *MemStorage) UpdateCounter(name string, value int64) {
 }
 
 func (s *MemStorage) GetGauge(name string) (float64, bool) {
-	return s.Gauge[name]
+	val, ok := s.Gauge[name]
+	return val, ok
 }
 
 func (s *MemStorage) GetKeyGauge() []string {

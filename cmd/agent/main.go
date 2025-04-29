@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"runtime"
 	"strconv"
@@ -11,99 +12,108 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type AgentConfig struct {
+type agent struct {
 	URL            string
-	PollInterval   int
 	ReportInterval int
+	PollInterval   int
 	Client         *resty.Client
+	PollCount      int64
+	Metrics        map[string]float64
+	Mutex          sync.Mutex
 }
 
-var (
-	PollCount int64 = 0
-	metrics         = make(map[string]float64)
-	mu        sync.Mutex
-)
+func createAgent(url string, reportInterval int, pollInterval int) *agent {
+	return (&agent{
+		URL:            url,
+		ReportInterval: reportInterval,
+		PollInterval:   pollInterval,
+		Client:         resty.New(),
+		PollCount:      0,
+		Metrics:        make(map[string]float64),
+	})
+}
 
-func createRequest(cfg *AgentConfig, metricType, name, value string) {
-	resp, err := cfg.Client.R().
+func (a *agent) createRequest(metricType, name, value string) {
+	resp, err := a.Client.R().
 		SetHeader("Content-Type", "text/plain").
 		SetPathParams(map[string]string{
 			"mType":  metricType,
 			"mName":  name,
 			"mValue": value,
 		}).
-		Post(cfg.URL + "/{mType}/{mName}/{mValue}")
+		Post(a.URL + "/{mType}/{mName}/{mValue}")
 
 	if err != nil {
-		fmt.Printf("Ошибка (%s): %v\n", cfg.URL+"/"+metricType+"/"+name+"/"+value, err)
+		fmt.Printf("Ошибка (%s): %v\n", a.URL+"/"+metricType+"/"+name+"/"+value, err)
 		return
 	}
-	fmt.Printf("%s: %d\n", cfg.URL+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
+	fmt.Printf("%s: %d\n", a.URL+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
 }
 
-func metricHandler(interval int) {
+func (a *agent) metricHandler() {
 	var s runtime.MemStats
 
 	for {
 		runtime.ReadMemStats(&s)
 
-		mu.Lock()
-		metrics["Alloc"] = float64(s.Alloc)
-		metrics["BuckHashSys"] = float64(s.BuckHashSys)
-		metrics["GCCPUFraction"] = s.GCCPUFraction
-		metrics["HeapAlloc"] = float64(s.HeapAlloc)
-		metrics["HeapIdle"] = float64(s.HeapIdle)
-		metrics["HeapInuse"] = float64(s.HeapInuse)
-		metrics["HeapObjects"] = float64(s.HeapObjects)
-		metrics["HeapReleased"] = float64(s.HeapReleased)
-		metrics["HeapSys"] = float64(s.HeapSys)
-		metrics["LastGC"] = float64(s.LastGC)
-		metrics["Lookups"] = float64(s.Lookups)
-		metrics["MCacheInuse"] = float64(s.MCacheInuse)
-		metrics["MCacheSys"] = float64(s.MCacheSys)
-		metrics["MSpanInuse"] = float64(s.MSpanInuse)
-		metrics["MSpanSys"] = float64(s.MSpanSys)
-		metrics["Mallocs"] = float64(s.Mallocs)
-		metrics["NextGC"] = float64(s.NextGC)
-		metrics["NumForcedGC"] = float64(s.NumForcedGC)
-		metrics["NumGC"] = float64(s.NumGC)
-		metrics["OtherSys"] = float64(s.OtherSys)
-		metrics["PauseTotalNs"] = float64(s.PauseTotalNs)
-		metrics["StackInuse"] = float64(s.StackInuse)
-		metrics["StackSys"] = float64(s.StackSys)
-		metrics["Sys"] = float64(s.Sys)
-		metrics["TotalAlloc"] = float64(s.TotalAlloc)
-		metrics["RandomValue"] = rand.Float64()
+		a.Mutex.Lock()
+		a.Metrics["Alloc"] = float64(s.Alloc)
+		a.Metrics["BuckHashSys"] = float64(s.BuckHashSys)
+		a.Metrics["GCCPUFraction"] = s.GCCPUFraction
+		a.Metrics["HeapAlloc"] = float64(s.HeapAlloc)
+		a.Metrics["HeapIdle"] = float64(s.HeapIdle)
+		a.Metrics["HeapInuse"] = float64(s.HeapInuse)
+		a.Metrics["HeapObjects"] = float64(s.HeapObjects)
+		a.Metrics["HeapReleased"] = float64(s.HeapReleased)
+		a.Metrics["HeapSys"] = float64(s.HeapSys)
+		a.Metrics["LastGC"] = float64(s.LastGC)
+		a.Metrics["Lookups"] = float64(s.Lookups)
+		a.Metrics["MCacheInuse"] = float64(s.MCacheInuse)
+		a.Metrics["MCacheSys"] = float64(s.MCacheSys)
+		a.Metrics["MSpanInuse"] = float64(s.MSpanInuse)
+		a.Metrics["MSpanSys"] = float64(s.MSpanSys)
+		a.Metrics["Mallocs"] = float64(s.Mallocs)
+		a.Metrics["NextGC"] = float64(s.NextGC)
+		a.Metrics["NumForcedGC"] = float64(s.NumForcedGC)
+		a.Metrics["NumGC"] = float64(s.NumGC)
+		a.Metrics["OtherSys"] = float64(s.OtherSys)
+		a.Metrics["PauseTotalNs"] = float64(s.PauseTotalNs)
+		a.Metrics["StackInuse"] = float64(s.StackInuse)
+		a.Metrics["StackSys"] = float64(s.StackSys)
+		a.Metrics["Sys"] = float64(s.Sys)
+		a.Metrics["TotalAlloc"] = float64(s.TotalAlloc)
+		a.Metrics["RandomValue"] = rand.Float64()
 
-		PollCount++
-		mu.Unlock()
+		a.PollCount++
+		a.Mutex.Unlock()
 
-		time.Sleep(time.Duration(interval) * time.Second)
+		time.Sleep(time.Duration(a.PollInterval) * time.Second)
 	}
 }
 
-func reportHandler(cfg *AgentConfig) {
+func (a *agent) reportHandler() {
 	for {
-		mu.Lock()
-		for key, value := range metrics {
-			createRequest(cfg, "gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
+		a.Mutex.Lock()
+		for key, value := range a.Metrics {
+			a.createRequest("gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
 		}
-		mu.Unlock()
-		createRequest(cfg, "counter", "PollCount", strconv.FormatInt(PollCount, 10))
+		a.Mutex.Unlock()
+		a.createRequest("counter", "PollCount", strconv.FormatInt(a.PollCount, 10))
 
-		time.Sleep(time.Duration(cfg.ReportInterval) * time.Second)
+		time.Sleep(time.Duration(a.ReportInterval) * time.Second)
 	}
 }
 
 func main() {
-	cfg, err := parseConfig()
+	url, reportInterval, pollInterval, err := parseConfig()
 	if err != nil {
-		fmt.Printf("ошибка инициализации: %v\n", err)
-		return
+		log.Fatal(err)
 	}
 
-	go metricHandler(cfg.PollInterval)
-	go reportHandler(cfg)
+	agent := createAgent(url, reportInterval, pollInterval)
+
+	go agent.metricHandler()
+	go agent.reportHandler()
 
 	select {}
 }

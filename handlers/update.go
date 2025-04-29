@@ -1,17 +1,19 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
 type Handler struct {
-	repo storage.Storage
+	Repo storage.Storage
 }
 
 func (h *Handler) getStringValue(metricType string, metricName string) (string, bool) {
@@ -57,7 +59,7 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value, isOk := getStringValue(h, metricType, metricName)
+	value, isOk := h.getStringValue(metricType, metricName)
 	if !isOk {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -65,8 +67,8 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	if _, err = w.Write([]byte(value)); err != nil {
-	    log.Error(err)
+	if _, err := w.Write([]byte(value)); err != nil {
+		log.Error(err)
 	}
 }
 
@@ -79,13 +81,13 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	list := make([]string, 0)
 	for _, item := range h.Repo.GetKeyGauge() {
-		value, ok := getStringValue(h, "gauge", item)
+		value, ok := h.getStringValue("gauge", item)
 		if ok {
 			list = append(list, (item + ": " + value + ";"))
 		}
 	}
 	for _, item := range h.Repo.GetKeyCounter() {
-		value, ok := getStringValue(h, "counter", item)
+		value, ok := h.getStringValue("counter", item)
 		if ok {
 			list = append(list, (item + ": " + value + ";"))
 		}
@@ -116,10 +118,14 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := h.updateData(metricType, metricName, metricValue)
+	if err := h.updateData(metricType, metricName, metricValue); err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(status)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) updateData(metricType, metricName, metricValue string) error {

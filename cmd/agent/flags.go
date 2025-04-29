@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/caarlos0/env/v6"
-	"github.com/go-resty/resty/v2"
 )
 
 type Config struct {
@@ -15,17 +15,21 @@ type Config struct {
 	PollInterval   string `env:"POLL_INTERVAL"`
 }
 
-func parseConfig() (*AgentConfig, error) {
+func parseConfig() (string, int, int, error) {
 	var flagRunAddr = flag.String("a", "localhost:8080", "address and port to run server")
 	var flagReportSeconds = flag.Int("r", 10, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", 2, "poll interval in seconds")
+
+	if flagRunAddr == nil || flagReportSeconds == nil || flagPollSeconds == nil {
+		log.Fatal("Flags init error")
+	}
 
 	flag.Parse()
 
 	var cfg Config
 	err := env.Parse(&cfg)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing env: %w", err)
+		return "", 0, 0, fmt.Errorf("error parsing env: %w", err)
 	}
 
 	runAddr := *flagRunAddr
@@ -47,10 +51,5 @@ func parseConfig() (*AgentConfig, error) {
 		}
 	}
 
-	return &AgentConfig{
-		URL:            "http://" + runAddr + "/update",
-		PollInterval:   pollInterval,
-		ReportInterval: reportInterval,
-		Client:         resty.New(),
-	}, nil
+	return runAddr, reportInterval, pollInterval, nil
 }
