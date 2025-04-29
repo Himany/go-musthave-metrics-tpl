@@ -51,5 +51,5 @@ func parseConfig() (string, int, int, error) {
 		}
 	}
 
-	return runAddr, reportInterval, pollInterval, nil
+	return "http://" + runAddr, reportInterval, pollInterval, nil
 }
