@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/caarlos0/env/v6"
@@ -21,7 +20,7 @@ func parseConfig() (string, int, int, error) {
 	var flagPollSeconds = flag.Int("p", 2, "poll interval in seconds")
 
 	if flagRunAddr == nil || flagReportSeconds == nil || flagPollSeconds == nil {
-		log.Fatal("Flags init error")
+		return "", 0, 0, fmt.Errorf("flags init error")
 	}
 
 	flag.Parse()

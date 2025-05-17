@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
@@ -59,8 +60,8 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value, isOk := h.getStringValue(metricType, metricName)
-	if !isOk {
+	value, ok := h.getStringValue(metricType, metricName)
+	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -68,7 +69,7 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write([]byte(value)); err != nil {
-		log.Error(err)
+		logger.Log.Error("GetMetric", zap.Error(err))
 	}
 }
 
@@ -119,7 +120,7 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.updateData(metricType, metricName, metricValue); err != nil {
-		log.Error(err)
+		logger.Log.Error("GetMetric", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
