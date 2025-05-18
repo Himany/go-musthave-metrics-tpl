@@ -237,7 +237,12 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 		h.Repo.UpdateGauge(metrics.ID, *metrics.Value)  //Обновляем данные в хранилище
 		*metrics.Value, _ = h.Repo.GetGauge(metrics.ID) //Обновляем данные в структуре для ответа
 	case "counter":
-		h.Repo.UpdateCounter(metrics.ID, *metrics.Delta)  //Обновляем данные в хранилище
+		value := *metrics.Delta
+		old, ok := h.Repo.GetCounter(metrics.ID)
+		if ok {
+			value += old
+		}
+		h.Repo.UpdateCounter(metrics.ID, value)           //Обновляем данные в хранилище
 		*metrics.Delta, _ = h.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
 	}
 
