@@ -1,15 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"math/rand/v2"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
+
+	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 )
 
 type agent struct {
@@ -33,21 +34,38 @@ func createAgent(url string, reportInterval int, pollInterval int) *agent {
 	})
 }
 
-func (a *agent) createRequest(metricType, name, value string) {
+func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) {
+	metrics := models.Metrics{
+		ID:    name,
+		MType: metricType,
+		Delta: delta,
+		Value: value,
+	}
+
+	start := time.Now()
+
 	resp, err := a.Client.R().
-		SetHeader("Content-Type", "text/plain").
-		SetPathParams(map[string]string{
-			"mType":  metricType,
-			"mName":  name,
-			"mValue": value,
-		}).
-		Post(a.URL + "/{mType}/{mName}/{mValue}")
+		SetHeader("Content-Type", "application/json").
+		SetBody(metrics).
+		Post(a.URL + "/update")
 
 	if err != nil {
-		fmt.Printf("Ошибка (%s): %v\n", a.URL+"/"+metricType+"/"+name+"/"+value, err)
+		logger.Log.Error("createRequest", zap.Error(err))
 		return
 	}
-	fmt.Printf("%s: %d\n", a.URL+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
+
+	duration := time.Since(start)
+
+	logger.Log.Info("HTTP request",
+		zap.String("uri", a.URL+"/update"),
+		zap.String("method", "POST"),
+		zap.Duration("duration", duration),
+	)
+	logger.Log.Info("HTTP answer",
+		zap.Int("status", resp.StatusCode()),
+		zap.Int("size", len(resp.Body())),
+		zap.String("body", resp.String()),
+	)
 }
 
 func (a *agent) metricHandler() {
@@ -95,19 +113,23 @@ func (a *agent) reportHandler() {
 	for {
 		a.Mutex.Lock()
 		for key, value := range a.Metrics {
-			a.createRequest("gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
+			a.createRequest("gauge", key, nil, &value)
 		}
 		a.Mutex.Unlock()
-		a.createRequest("counter", "PollCount", strconv.FormatInt(a.PollCount, 10))
+		a.createRequest("counter", "PollCount", &a.PollCount, nil)
 
 		time.Sleep(time.Duration(a.ReportInterval) * time.Second)
 	}
 }
 
 func main() {
-	url, reportInterval, pollInterval, err := parseConfig()
+	url, reportInterval, pollInterval, logLevel, err := parseConfig()
 	if err != nil {
-		log.Fatal(err)
+		panic("failed to initialize flags: " + err.Error())
+	}
+
+	if err := logger.Initialize(logLevel); err != nil {
+		panic("failed to initialize logger: " + err.Error())
 	}
 
 	agent := createAgent(url, reportInterval, pollInterval)

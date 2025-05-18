@@ -12,15 +12,17 @@ type Config struct {
 	Address        string `env:"ADDRESS"`
 	ReportInterval string `env:"REPORT_INTERVAL"`
 	PollInterval   string `env:"POLL_INTERVAL"`
+	LogLevel       string `env:"LOGLEVEL"`
 }
 
-func parseConfig() (string, int, int, error) {
+func parseConfig() (string, int, int, string, error) {
 	var flagRunAddr = flag.String("a", "localhost:8080", "address and port to run server")
 	var flagReportSeconds = flag.Int("r", 10, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", 2, "poll interval in seconds")
+	var flagLogLevel = flag.String("l", "info", "log level")
 
-	if flagRunAddr == nil || flagReportSeconds == nil || flagPollSeconds == nil {
-		return "", 0, 0, fmt.Errorf("flags init error")
+	if flagRunAddr == nil || flagReportSeconds == nil || flagPollSeconds == nil || flagLogLevel == nil {
+		return "", 0, 0, "", fmt.Errorf("flags init error")
 	}
 
 	flag.Parse()
@@ -28,7 +30,7 @@ func parseConfig() (string, int, int, error) {
 	var cfg Config
 	err := env.Parse(&cfg)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("error parsing env: %w", err)
+		return "", 0, 0, "", fmt.Errorf("error parsing env: %w", err)
 	}
 
 	runAddr := *flagRunAddr
@@ -50,5 +52,10 @@ func parseConfig() (string, int, int, error) {
 		}
 	}
 
-	return "http://" + runAddr, reportInterval, pollInterval, nil
+	logLvl := *flagLogLevel
+	if cfg.LogLevel != "" {
+		logLvl = cfg.LogLevel
+	}
+
+	return "http://" + runAddr, reportInterval, pollInterval, logLvl, nil
 }

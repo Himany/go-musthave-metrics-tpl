@@ -17,7 +17,7 @@ func TestUpdate(t *testing.T) {
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
-	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
 
 	testCases := []struct {
 		name         string
@@ -81,8 +81,8 @@ func TestGetMetric(t *testing.T) {
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
-	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
-	router.Get("/value/{type}/{name}", handler.GetMetric)
+	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
+	router.Get("/value/{type}/{name}", handler.GetMetricQuery)
 
 	testCases := []struct {
 		name            string
@@ -131,7 +131,7 @@ func TestGetAllMetrics(t *testing.T) {
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
-	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandler)
+	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
 	router.Get("/", handler.GetAllMetrics)
 
 	// Метрики для добавления
