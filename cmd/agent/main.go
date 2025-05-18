@@ -112,7 +112,8 @@ func (a *agent) metricHandler() {
 func (a *agent) reportHandler() {
 	for {
 		a.Mutex.Lock()
-		for key, value := range a.Metrics {
+		for key := range a.Metrics {
+			value := a.Metrics[key]
 			a.createRequest("gauge", key, nil, &value)
 		}
 		a.Mutex.Unlock()
