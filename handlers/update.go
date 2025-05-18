@@ -77,7 +77,7 @@ func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) GetMetricJson(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -103,24 +103,28 @@ func (h *Handler) GetMetricJson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Проверка объекта
-	if err = validateGetMetricJson(metrics); err != nil {
+	if err = validateGetMetricJSON(metrics); err != nil {
 		logger.Log.Error("GetMetricJson", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	//Получаем данные
-	var ok bool
 	switch metrics.MType {
 	case "gauge":
-		*metrics.Value, ok = h.Repo.GetGauge(metrics.ID)
+		value, ok := h.Repo.GetGauge(metrics.ID)
+		if !(ok) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		metrics.Value = &value
 	case "counter":
-		*metrics.Delta, ok = h.Repo.GetCounter(metrics.ID)
-	}
-
-	if !(ok) {
-		w.WriteHeader(http.StatusNotFound)
-		return
+		value, ok := h.Repo.GetCounter(metrics.ID)
+		if !(ok) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		metrics.Delta = &value
 	}
 
 	//Отвечаем на запрос
@@ -195,7 +199,7 @@ func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) UpdateHandlerJson(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -221,7 +225,7 @@ func (h *Handler) UpdateHandlerJson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Проверка объекта
-	if err = validateUpdateJson(metrics); err != nil {
+	if err = validateUpdateJSON(metrics); err != nil {
 		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -253,7 +257,7 @@ func (h *Handler) UpdateHandlerJson(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func validateUpdateJson(metrics models.Metrics) error {
+func validateUpdateJSON(metrics models.Metrics) error {
 	if metrics.ID == "" {
 		return errors.New("field 'id' is required")
 	}
@@ -276,7 +280,7 @@ func validateUpdateJson(metrics models.Metrics) error {
 	return nil
 }
 
-func validateGetMetricJson(metrics models.Metrics) error {
+func validateGetMetricJSON(metrics models.Metrics) error {
 	if metrics.ID == "" {
 		return errors.New("field 'id' is required")
 	}
