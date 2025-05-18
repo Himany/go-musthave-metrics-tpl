@@ -100,6 +100,8 @@ func (a *agent) metricHandler() {
 		a.Metrics["StackSys"] = float64(s.StackSys)
 		a.Metrics["Sys"] = float64(s.Sys)
 		a.Metrics["TotalAlloc"] = float64(s.TotalAlloc)
+		a.Metrics["Frees"] = float64(s.Frees)
+		a.Metrics["GCSys"] = float64(s.GCSys)
 		a.Metrics["RandomValue"] = rand.Float64()
 
 		a.PollCount++
