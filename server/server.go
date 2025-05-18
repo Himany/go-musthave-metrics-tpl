@@ -15,10 +15,10 @@ func Run(handler *handlers.Handler, flagRunAddr string) error {
 	r.Get("/", handler.GetAllMetrics)
 
 	r.Get("/value/{type}/{name}", handler.GetMetricQuery)
-	r.Post("/value", handler.GetMetricJson)
+	r.Post("/value/", handler.GetMetricJson)
 
 	r.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
-	r.Post("/update", handler.UpdateHandlerJson)
+	r.Post("/update/", handler.UpdateHandlerJson)
 
 	return http.ListenAndServe(flagRunAddr, logger.RequestLogger(r))
 }
