@@ -47,7 +47,7 @@ func (a *agent) createRequest(metricType string, name string, delta *int64, valu
 	resp, err := a.Client.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(metrics).
-		Post(a.URL + "/update")
+		Post(a.URL + "/update/")
 
 	if err != nil {
 		logger.Log.Error("createRequest", zap.Error(err))
@@ -57,7 +57,7 @@ func (a *agent) createRequest(metricType string, name string, delta *int64, valu
 	duration := time.Since(start)
 
 	logger.Log.Info("HTTP request",
-		zap.String("uri", a.URL+"/update"),
+		zap.String("uri", a.URL+"/update/"),
 		zap.String("method", "POST"),
 		zap.Duration("duration", duration),
 	)
