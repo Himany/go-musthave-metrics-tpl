@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"math/rand/v2"
 	"runtime"
 	"sync"
@@ -34,6 +37,26 @@ func createAgent(url string, reportInterval int, pollInterval int) *agent {
 	})
 }
 
+func compressBody(v models.Metrics) ([]byte, error) {
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+
+	if _, err := gz.Write(jsonData); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
 func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) {
 	metrics := models.Metrics{
 		ID:    name,
@@ -42,11 +65,18 @@ func (a *agent) createRequest(metricType string, name string, delta *int64, valu
 		Value: value,
 	}
 
+	body, err := compressBody(metrics)
+	if err != nil {
+		logger.Log.Error("compressBody", zap.Error(err))
+		return
+	}
+
 	start := time.Now()
 
 	resp, err := a.Client.R().
+		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Content-Type", "application/json").
-		SetBody(metrics).
+		SetBody(body).
 		Post(a.URL + "/update/")
 
 	if err != nil {

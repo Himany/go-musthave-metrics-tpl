@@ -20,5 +20,5 @@ func Run(handler *handlers.Handler, flagRunAddr string) error {
 	r.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
 	r.Post("/update/", handler.UpdateHandlerJSON)
 
-	return http.ListenAndServe(flagRunAddr, logger.RequestLogger(r))
+	return http.ListenAndServe(flagRunAddr, logger.RequestLogger(gzipMiddleware(r)))
 }
