@@ -18,6 +18,12 @@ func main() {
 		panic("failed to initialize logger: " + err.Error())
 	}
 
+	logger.Log.Info("flags",
+		zap.String("runAddr", runAddr),
+		zap.String("fileStoragePath", fileStoragePath),
+		zap.Int("storeInterval", storeInterval),
+		zap.Bool("restore", restore),
+	)
 	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
 	handler := &handlers.Handler{Repo: memStorage}
 	if restore {
