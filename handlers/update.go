@@ -166,6 +166,8 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	resultString := strings.Join(list, "\n")
 
 	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+
 	_, _ = w.Write([]byte(resultString))
 }
 
