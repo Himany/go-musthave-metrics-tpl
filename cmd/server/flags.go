@@ -9,9 +9,9 @@ import (
 type Config struct {
 	Address         string `env:"ADDRESS"`
 	LogLevel        string `env:"LOGLEVEL"`
-	storeInterval   int    `env:"STORE_INTERVAL"`
-	fileStoragePath string `env:"FILE_STORAGE_PATH"`
-	restore         bool   `env:"RESTORE"`
+	StoreInterval   int    `env:"STORE_INTERVAL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	Restore         bool   `env:"RESTORE"`
 }
 
 var runAddr, logLevel, fileStoragePath string
@@ -51,17 +51,17 @@ func parseFlags() error {
 
 	storeInterval = *flagStoreInterval
 	if envSet["STORE_INTERVAL"] {
-		storeInterval = cfg.storeInterval
+		storeInterval = cfg.StoreInterval
 	}
 
 	fileStoragePath = *flagFileStoragePath
-	if envSet["FILE_STORAGE_PATH"] && (cfg.fileStoragePath != "") {
-		fileStoragePath = cfg.fileStoragePath
+	if envSet["FILE_STORAGE_PATH"] && (cfg.FileStoragePath != "") {
+		fileStoragePath = cfg.FileStoragePath
 	}
 
 	restore = *flagRestore
 	if envSet["RESTORE"] {
-		restore = cfg.restore
+		restore = cfg.Restore
 	}
 
 	return nil
