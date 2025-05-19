@@ -42,15 +42,19 @@ func NewMemStorage(path string, isSyncSave bool) *MemStorage {
 
 func (s *MemStorage) UpdateGauge(name string, value float64) {
 	s.Gauge[name] = value
-	if err := s.SaveData(); err != nil {
-		logger.Log.Error("UpdateGauge", zap.Error(err))
+	if s.isSyncSave {
+		if err := s.SaveData(); err != nil {
+			logger.Log.Error("UpdateGauge", zap.Error(err))
+		}
 	}
 }
 
 func (s *MemStorage) UpdateCounter(name string, value int64) {
 	s.Counter[name] = value
-	if err := s.SaveData(); err != nil {
-		logger.Log.Error("UpdateGauge", zap.Error(err))
+	if s.isSyncSave {
+		if err := s.SaveData(); err != nil {
+			logger.Log.Error("UpdateGauge", zap.Error(err))
+		}
 	}
 }
 
