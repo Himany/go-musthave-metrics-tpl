@@ -117,6 +117,8 @@ func (s *MemStorage) SaveData() error {
 		return err
 	}
 
+	logger.Log.Info("metrics saved successfully", zap.String("path", s.fileToSave))
+
 	return nil
 }
 
@@ -137,6 +139,8 @@ func (s *MemStorage) LoadData() error {
 
 	s.Gauge = save.Gauge
 	s.Counter = save.Counter
+
+	logger.Log.Info("metrics loaded successfully", zap.String("path", s.fileToSave))
 
 	return nil
 }
