@@ -24,7 +24,7 @@ func parseFlags() error {
 	var flagRunAddr = flag.String("a", "localhost:8080", "address and port to run server")
 	var flagLogLevel = flag.String("l", "info", "log level")
 	var flagStoreInterval = flag.Int("i", 300, "time interval in seconds after which the current server readings are saved to disk")
-	var flagFileStoragePath = flag.String("f", "", "the path to the file where the current values are saved")
+	var flagFileStoragePath = flag.String("f", "metrics_data", "the path to the file where the current values are saved")
 	var flagRestore = flag.Bool("r", false, "whether or not to download previously saved values from the specified file at server startup")
 
 	flag.Parse()
