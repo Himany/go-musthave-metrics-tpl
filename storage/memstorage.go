@@ -130,9 +130,14 @@ func (s *MemStorage) LoadData() error {
 	var save saveFormat
 
 	data, err := os.ReadFile(s.fileToSave)
+	if os.IsNotExist(err) {
+		logger.Log.Warn("metrics file not found, skipping restore", zap.String("path", s.fileToSave))
+		return nil
+	}
 	if err != nil {
 		return err
 	}
+
 	if err := json.Unmarshal(data, &save); err != nil {
 		return err
 	}
@@ -141,7 +146,6 @@ func (s *MemStorage) LoadData() error {
 	s.Counter = save.Counter
 
 	logger.Log.Info("metrics loaded successfully", zap.String("path", s.fileToSave))
-
 	return nil
 }
 
