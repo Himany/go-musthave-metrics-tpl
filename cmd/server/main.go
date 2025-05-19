@@ -25,6 +25,12 @@ func main() {
 			panic("failed to load data: " + err.Error())
 		}
 	}
+	defer func() {
+		if err := memStorage.SaveData(); err != nil {
+			logger.Log.Error("failed to save data on shutdown", zap.Error(err))
+		}
+	}()
+
 	if storeInterval != 0 {
 		go memStorage.SaveHandler(storeInterval)
 	}
