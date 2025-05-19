@@ -40,12 +40,12 @@ func parseFlags() error {
 	}
 
 	runAddr = *flagRunAddr
-	if envSet["ADDRESS"] {
+	if (envSet["ADDRESS"]) && (cfg.Address != "") {
 		runAddr = cfg.Address
 	}
 
 	logLevel = *flagLogLevel
-	if envSet["LOGLEVEL"] {
+	if (envSet["LOGLEVEL"]) && (cfg.LogLevel != "") {
 		logLevel = cfg.LogLevel
 	}
 
@@ -55,7 +55,7 @@ func parseFlags() error {
 	}
 
 	fileStoragePath = *flagFileStoragePath
-	if envSet["FILE_STORAGE_PATH"] {
+	if envSet["FILE_STORAGE_PATH"] && (cfg.fileStoragePath != "") {
 		fileStoragePath = cfg.fileStoragePath
 	}
 
