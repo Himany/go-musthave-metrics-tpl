@@ -18,8 +18,14 @@ func main() {
 		panic("failed to initialize logger: " + err.Error())
 	}
 
-	memStorage := storage.NewMemStorage()
+	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
 	handler := &handlers.Handler{Repo: memStorage}
+	if restore {
+		memStorage.LoadData()
+	}
+	if storeInterval != 0 {
+		memStorage.SaveHandler(storeInterval)
+	}
 
 	if err := server.Run(handler, runAddr); err != nil {
 		logger.Log.Fatal("main", zap.Error(err))

@@ -8,7 +8,7 @@ import (
 )
 
 func TestMemStorage_UpdateGauge(t *testing.T) {
-	repo := NewMemStorage()
+	repo := NewMemStorage("", false)
 
 	testCases := []struct {
 		key           string
@@ -39,7 +39,7 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 }
 
 func TestMemStorage_UpdateCounter(t *testing.T) {
-	repo := NewMemStorage()
+	repo := NewMemStorage("", false)
 
 	testCases := []struct {
 		key           string

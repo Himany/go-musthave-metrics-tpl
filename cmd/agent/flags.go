@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/caarlos0/env/v6"
+	"github.com/caarlos0/env/v11"
 )
 
 type Config struct {

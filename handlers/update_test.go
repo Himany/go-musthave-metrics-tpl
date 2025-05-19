@@ -13,7 +13,7 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	memStorage := storage.NewMemStorage()
+	memStorage := storage.NewMemStorage("", false)
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
@@ -77,7 +77,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestGetMetric(t *testing.T) {
-	memStorage := storage.NewMemStorage()
+	memStorage := storage.NewMemStorage("", false)
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
@@ -127,7 +127,7 @@ func TestGetMetric(t *testing.T) {
 }
 
 func TestGetAllMetrics(t *testing.T) {
-	memStorage := storage.NewMemStorage()
+	memStorage := storage.NewMemStorage("", false)
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
