@@ -26,7 +26,7 @@ func main() {
 	)
 	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
 	handler := &handlers.Handler{Repo: memStorage}
-	if restore {
+	if restore && fileStoragePath != "" {
 		if err := memStorage.LoadData(); err != nil {
 			panic("failed to load data: " + err.Error())
 		}
