@@ -165,7 +165,7 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	resultString := strings.Join(list, "\n")
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/html")
 	_, _ = w.Write([]byte(resultString))
 }
 
