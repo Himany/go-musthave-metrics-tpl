@@ -21,10 +21,12 @@ func main() {
 	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
 	handler := &handlers.Handler{Repo: memStorage}
 	if restore {
-		memStorage.LoadData()
+		if err := memStorage.LoadData(); err != nil {
+			panic("failed to load data: " + err.Error())
+		}
 	}
 	if storeInterval != 0 {
-		memStorage.SaveHandler(storeInterval)
+		go memStorage.SaveHandler(storeInterval)
 	}
 
 	if err := server.Run(handler, runAddr); err != nil {

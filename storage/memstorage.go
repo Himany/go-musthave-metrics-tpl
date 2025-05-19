@@ -19,6 +19,7 @@ type Storage interface {
 	GetKeyCounter() []string
 	SaveData() error
 	LoadData() error
+	SaveHandler(int)
 }
 
 type MemStorage struct {
@@ -136,7 +137,7 @@ func (s *MemStorage) LoadData() error {
 	return nil
 }
 
-func (s *MemStorage) SaveHandler(interval int) error {
+func (s *MemStorage) SaveHandler(interval int) {
 	for {
 		if err := s.SaveData(); err != nil {
 			logger.Log.Error("SaveHandler", zap.Error(err))
