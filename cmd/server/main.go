@@ -28,7 +28,7 @@ func main() {
 	handler := &handlers.Handler{Repo: memStorage}
 	if restore && fileStoragePath != "" {
 		if err := memStorage.LoadData(); err != nil {
-			panic("failed to load data: " + err.Error())
+			logger.Log.Fatal("failed to load data", zap.Error(err))
 		}
 	}
 	defer func() {
