@@ -59,10 +59,7 @@ func parseFlags() error {
 		fileStoragePath = cfg.fileStoragePath
 	}
 
-	restore = *flagRestore
-	if envSet["RESTORE"] {
-		restore = cfg.restore
-	}
+	restore = *flagRestore || cfg.restore
 
 	return nil
 }
