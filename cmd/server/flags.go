@@ -3,16 +3,9 @@ package main
 import (
 	"flag"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
 	"github.com/caarlos0/env/v11"
 )
-
-type Config struct {
-	Address         string `env:"ADDRESS"`
-	LogLevel        string `env:"LOGLEVEL"`
-	StoreInterval   int    `env:"STORE_INTERVAL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	Restore         bool   `env:"RESTORE"`
-}
 
 var runAddr, logLevel, fileStoragePath string
 var storeInterval int
@@ -29,9 +22,9 @@ func parseFlags() error {
 
 	flag.Parse()
 
-	var cfg Config
+	var cfg config.Config
 	err := env.ParseWithOptions(&cfg, env.Options{
-		OnSet: func(tag string, value interface{}, isDefault bool) {
+		OnSet: func(tag string, value any, isDefault bool) {
 			envSet[tag] = true
 		},
 	})

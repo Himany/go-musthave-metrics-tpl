@@ -14,11 +14,19 @@ import (
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
-	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
+type MetricsRepo interface {
+	UpdateGauge(name string, value float64)
+	UpdateCounter(name string, value int64)
+	GetGauge(name string) (float64, bool)
+	GetCounter(name string) (int64, bool)
+	GetKeyGauge() []string
+	GetKeyCounter() []string
+}
+
 type Handler struct {
-	Repo storage.Storage
+	Repo MetricsRepo
 }
 
 func (h *Handler) getStringValue(metricType string, metricName string) (string, bool) {
@@ -46,21 +54,10 @@ func (h *Handler) getStringValue(metricType string, metricName string) (string, 
 }
 
 func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		return
-	}
-
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	if metricName == "" {
 		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	if metricType == "" {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -144,12 +141,6 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		return
-	}
-
 	list := make([]string, 0)
 	for _, item := range h.Repo.GetKeyGauge() {
 		value, ok := h.getStringValue("gauge", item)
@@ -168,16 +159,13 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = w.Write([]byte(resultString))
+	if _, err := w.Write([]byte(resultString)); err != nil {
+		logger.Log.Error("GetAllMetrics", zap.Error(err))
+		return
+	}
 }
 
 func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		return
-	}
-
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	metricValue := chi.URLParam(r, "value")
@@ -236,16 +224,27 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	//Обновляем данные
 	switch metrics.MType {
 	case "gauge":
-		h.Repo.UpdateGauge(metrics.ID, *metrics.Value)  //Обновляем данные в хранилище
-		*metrics.Value, _ = h.Repo.GetGauge(metrics.ID) //Обновляем данные в структуре для ответа
+		h.Repo.UpdateGauge(metrics.ID, *metrics.Value) //Обновляем данные в хранилище
+		newValue, ok := h.Repo.GetGauge(metrics.ID)    //Обновляем данные в структуре для ответа
+		if ok {
+			*metrics.Value = newValue
+		} else {
+			logger.Log.Error("UpdateHandlerJSON -> GetGauge", zap.Error(err))
+		}
+
 	case "counter":
 		value := *metrics.Delta
 		old, ok := h.Repo.GetCounter(metrics.ID)
 		if ok {
 			value += old
 		}
-		h.Repo.UpdateCounter(metrics.ID, value)           //Обновляем данные в хранилище
-		*metrics.Delta, _ = h.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
+		h.Repo.UpdateCounter(metrics.ID, value)       //Обновляем данные в хранилище
+		newValue, ok := h.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
+		if ok {
+			*metrics.Delta = newValue
+		} else {
+			logger.Log.Error("UpdateHandlerJSON -> GetCounter", zap.Error(err))
+		}
 	}
 
 	//Отвечаем на запрос

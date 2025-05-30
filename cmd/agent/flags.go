@@ -5,15 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
 	"github.com/caarlos0/env/v11"
 )
-
-type Config struct {
-	Address        string `env:"ADDRESS"`
-	ReportInterval string `env:"REPORT_INTERVAL"`
-	PollInterval   string `env:"POLL_INTERVAL"`
-	LogLevel       string `env:"LOGLEVEL"`
-}
 
 func parseConfig() (string, int, int, string, error) {
 	var flagRunAddr = flag.String("a", "localhost:8080", "address and port to run server")
@@ -21,13 +15,9 @@ func parseConfig() (string, int, int, string, error) {
 	var flagPollSeconds = flag.Int("p", 2, "poll interval in seconds")
 	var flagLogLevel = flag.String("l", "info", "log level")
 
-	if flagRunAddr == nil || flagReportSeconds == nil || flagPollSeconds == nil || flagLogLevel == nil {
-		return "", 0, 0, "", fmt.Errorf("flags init error")
-	}
-
 	flag.Parse()
 
-	var cfg Config
+	var cfg config.Config
 	err := env.Parse(&cfg)
 	if err != nil {
 		return "", 0, 0, "", fmt.Errorf("error parsing env: %w", err)

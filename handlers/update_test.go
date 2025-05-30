@@ -30,33 +30,33 @@ func TestUpdate(t *testing.T) {
 		metricValue  string
 	}{
 		//Методы
-		{name: "[Методы] Проверка метода GET", method: http.MethodGet, expectedCode: http.StatusMethodNotAllowed, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
-		{name: "[Методы] Проверка метода PUT", method: http.MethodPut, expectedCode: http.StatusMethodNotAllowed, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
-		{name: "[Методы] Проверка метода DELETE", method: http.MethodDelete, expectedCode: http.StatusMethodNotAllowed, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
-		{name: "[Методы] Проверка метода POST", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "METHODS_GET", method: http.MethodGet, expectedCode: http.StatusMethodNotAllowed, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "METHODS_PUT", method: http.MethodPut, expectedCode: http.StatusMethodNotAllowed, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "METHODS_DELETE", method: http.MethodDelete, expectedCode: http.StatusMethodNotAllowed, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "METHODS_POST", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
 
 		//Контент
-		{name: "[Контент] Тест", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
-		{name: "[Контент] Json", method: http.MethodPost, expectedCode: http.StatusUnsupportedMediaType, expectedBody: "", contentType: "application/json", metricType: "gauge", metricName: "test", metricValue: "1"},
-		{name: "[Контент] Пусто", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "CONTENT_TEXT", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "CONTENT_JSON", method: http.MethodPost, expectedCode: http.StatusUnsupportedMediaType, expectedBody: "", contentType: "application/json", metricType: "gauge", metricName: "test", metricValue: "1"},
+		{name: "CONTENT_EMPTY", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "", metricType: "gauge", metricName: "test", metricValue: "1"},
 
 		//Данные
-		{name: "[Параметры] Отсутствует тип метрики", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "", metricName: "test", metricValue: "1"},
-		{name: "[Параметры] Отсутствует название метрики", method: http.MethodPost, expectedCode: http.StatusNotFound, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "", metricValue: "1"},
-		{name: "[Параметры] Отсутствует значение метрики", method: http.MethodPost, expectedCode: http.StatusNotFound, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: ""},
+		{name: "WITHOUT_METRIC_TYPE", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "", metricName: "test", metricValue: "1"},
+		{name: "WITHOUT_METRIC_NAME", method: http.MethodPost, expectedCode: http.StatusNotFound, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "", metricValue: "1"},
+		{name: "WITHOUT_METRIC_VALUE", method: http.MethodPost, expectedCode: http.StatusNotFound, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: ""},
 
 		//Разные типы метрик
-		{name: "[Типы] Проверка типа gauge", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "12.32"},
-		{name: "[Типы] Проверка типа counter", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "2"},
-		{name: "[Типы] Неизвестный тип", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "blabla", metricName: "test", metricValue: "2"},
+		{name: "TYPE_GAUGE", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "12.32"},
+		{name: "TYPE_COUNTER", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "2"},
+		{name: "TYPE_UNKNOWN", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "blabla", metricName: "test", metricValue: "2"},
 
 		//Значения
-		{name: "[Значения] gauge строка", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "test"},
-		{name: "[Значения] gauge float", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "42.2"},
-		{name: "[Значения] gauge int", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "42"},
-		{name: "[Значения] counter строка", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "test"},
-		{name: "[Значения] counter float", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "42.2"},
-		{name: "[Значения] counter int", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "42"},
+		{name: "GAUGE_STRING", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "test"},
+		{name: "GAUGE_FLOAT", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "42.2"},
+		{name: "GAUGE_INT", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "gauge", metricName: "test", metricValue: "42"},
+		{name: "COUNTER_STRING", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "test"},
+		{name: "COUNTER_FLOAT", method: http.MethodPost, expectedCode: http.StatusBadRequest, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "42.2"},
+		{name: "COUNTER_INT", method: http.MethodPost, expectedCode: http.StatusOK, expectedBody: "", contentType: "text/plain", metricType: "counter", metricName: "test", metricValue: "42"},
 	}
 
 	for _, tc := range testCases {
@@ -92,16 +92,16 @@ func TestGetMetric(t *testing.T) {
 		metricName      string
 		metricValue     string
 	}{
-		{name: "Добавления ноля (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f1", metricValue: "0"},
-		{name: "Добавления положительного целого числа (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f2", metricValue: "42"},
-		{name: "Добавления отрицательного целого числа (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f3", metricValue: "-42"},
-		{name: "Добавления положительного числа с плавающей точкой (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f4", metricValue: "42.2"},
-		{name: "Добавления отрицательного числа с плавающей точкой (float64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f5", metricValue: "-42.2"},
-		{name: "Добавления ноля (int64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i1", metricValue: "0"},
-		{name: "Добавления положительного целого числа (int64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i2", metricValue: "42"},
-		{name: "Добавления отрицательного целого числа (int64)", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i3", metricValue: "-42"},
-		{name: "Добавления положительного числа с плавающей точкой (int64)", expectedCodeAdd: http.StatusBadRequest, expectedCodeGet: http.StatusNotFound, metricType: "counter", metricName: "i4", metricValue: "42.2"},
-		{name: "Добавления отрицательного числа с плавающей точкой (int64)", expectedCodeAdd: http.StatusBadRequest, expectedCodeGet: http.StatusNotFound, metricType: "counter", metricName: "i5", metricValue: "-42.2"},
+		{name: "ADD_ZERO_float64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f1", metricValue: "0"},
+		{name: "ADD_POS_INT_float64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f2", metricValue: "42"},
+		{name: "ADD_NEG_INT_float64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f3", metricValue: "-42"},
+		{name: "ADD_POS_FLOAT_float64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f4", metricValue: "42.2"},
+		{name: "ADD_NEG_FLOAT_float64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "gauge", metricName: "f5", metricValue: "-42.2"},
+		{name: "ADD_ZERO_int64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i1", metricValue: "0"},
+		{name: "ADD_POS_INT_int64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i2", metricValue: "42"},
+		{name: "ADD_NEG_INT_int64", expectedCodeAdd: http.StatusOK, expectedCodeGet: http.StatusOK, metricType: "counter", metricName: "i3", metricValue: "-42"},
+		{name: "ADD_POS_FLOAT_int64", expectedCodeAdd: http.StatusBadRequest, expectedCodeGet: http.StatusNotFound, metricType: "counter", metricName: "i4", metricValue: "42.2"},
+		{name: "ADD_NEG_FLOAT_int64", expectedCodeAdd: http.StatusBadRequest, expectedCodeGet: http.StatusNotFound, metricType: "counter", metricName: "i5", metricValue: "-42.2"},
 	}
 
 	for index, tc := range testCases {
@@ -154,7 +154,7 @@ func TestGetAllMetrics(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, "[POST] Код ответа не совпадает при добавлении метрики %s", m.metricName)
 	}
 
-	t.Run("[Метрики] Проверка получения всех метрик", func(t *testing.T) {
+	t.Run("GET_ALL_METRICS", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
 

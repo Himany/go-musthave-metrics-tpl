@@ -1,4 +1,4 @@
-package server
+package middleware
 
 import (
 	"net/http"
@@ -7,7 +7,19 @@ import (
 	"github.com/Himany/go-musthave-metrics-tpl/internal/compress"
 )
 
-func gzipMiddleware(h http.Handler) http.Handler {
+func CheckPlainTextContentType(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "" && !strings.HasPrefix(contentType, "text/plain") {
+			w.WriteHeader(http.StatusUnsupportedMediaType)
+			return
+		}
+
+		h(w, r)
+	}
+}
+
+func Gzip(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// по умолчанию устанавливаем оригинальный http.ResponseWriter как тот,
 		// который будем передавать следующей функции
