@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/middleware"
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
@@ -17,7 +18,7 @@ func TestUpdate(t *testing.T) {
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
-	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
+	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
 
 	testCases := []struct {
 		name         string
@@ -81,8 +82,8 @@ func TestGetMetric(t *testing.T) {
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
-	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
-	router.Get("/value/{type}/{name}", handler.GetMetricQuery)
+	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
+	router.Get("/value/{type}/{name}", middleware.CheckPlainTextContentType(handler.GetMetricQuery))
 
 	testCases := []struct {
 		name            string
@@ -131,7 +132,7 @@ func TestGetAllMetrics(t *testing.T) {
 	handler := &Handler{Repo: memStorage}
 
 	router := chi.NewRouter()
-	router.Post("/update/{type}/{name}/{value}", handler.UpdateHandlerQuery)
+	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
 	router.Get("/", handler.GetAllMetrics)
 
 	// Метрики для добавления
