@@ -10,7 +10,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type Storage interface {
+type MemStorage interface {
+	Ping() error
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetGauge(name string) (float64, bool)
@@ -22,7 +23,7 @@ type Storage interface {
 	SaveHandler(int)
 }
 
-type MemStorage struct {
+type MemStorageData struct {
 	Gauge   map[string]float64
 	Counter map[string]int64
 
@@ -30,8 +31,8 @@ type MemStorage struct {
 	isSyncSave bool
 }
 
-func NewMemStorage(path string, isSyncSave bool) *MemStorage {
-	return &MemStorage{
+func NewMemStorage(path string, isSyncSave bool) *MemStorageData {
+	return &MemStorageData{
 		Gauge:   make(map[string]float64),
 		Counter: make(map[string]int64),
 
@@ -40,30 +41,34 @@ func NewMemStorage(path string, isSyncSave bool) *MemStorage {
 	}
 }
 
-func (s *MemStorage) UpdateGauge(name string, value float64) {
+func (s *MemStorageData) Ping() error {
+	return nil
+}
+
+func (s *MemStorageData) UpdateGauge(name string, value float64) {
 	s.Gauge[name] = value
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
-			logger.Log.Error("UpdateGauge", zap.Error(err))
+			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
 		}
 	}
 }
 
-func (s *MemStorage) UpdateCounter(name string, value int64) {
+func (s *MemStorageData) UpdateCounter(name string, value int64) {
 	s.Counter[name] = value
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
-			logger.Log.Error("UpdateGauge", zap.Error(err))
+			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
 		}
 	}
 }
 
-func (s *MemStorage) GetGauge(name string) (float64, bool) {
+func (s *MemStorageData) GetGauge(name string) (float64, bool) {
 	val, ok := s.Gauge[name]
 	return val, ok
 }
 
-func (s *MemStorage) GetKeyGauge() []string {
+func (s *MemStorageData) GetKeyGauge() []string {
 	keys := make([]string, 0, len(s.Gauge))
 	for key := range s.Gauge {
 		keys = append(keys, key)
@@ -71,12 +76,12 @@ func (s *MemStorage) GetKeyGauge() []string {
 	return keys
 }
 
-func (s *MemStorage) GetCounter(name string) (int64, bool) {
+func (s *MemStorageData) GetCounter(name string) (int64, bool) {
 	val, ok := s.Counter[name]
 	return val, ok
 }
 
-func (s *MemStorage) GetKeyCounter() []string {
+func (s *MemStorageData) GetKeyCounter() []string {
 	keys := make([]string, 0, len(s.Counter))
 	for key := range s.Counter {
 		keys = append(keys, key)
@@ -90,9 +95,9 @@ type saveFormat struct {
 	Counter map[string]int64   `json:"counter"`
 }
 
-func (s *MemStorage) SaveData() error {
+func (s *MemStorageData) SaveData() error {
 	if s.fileToSave == "" {
-		return errors.New("file is not specified")
+		return errors.New("MEM file is not specified")
 	}
 
 	// создаем файл
@@ -117,21 +122,21 @@ func (s *MemStorage) SaveData() error {
 		return err
 	}
 
-	logger.Log.Info("metrics saved successfully", zap.String("path", s.fileToSave))
+	logger.Log.Info("MEM metrics saved successfully", zap.String("path", s.fileToSave))
 
 	return nil
 }
 
-func (s *MemStorage) LoadData() error {
+func (s *MemStorageData) LoadData() error {
 	if s.fileToSave == "" {
-		return errors.New("file is not specified")
+		return errors.New("MEM file is not specified")
 	}
 
 	var save saveFormat
 
 	data, err := os.ReadFile(s.fileToSave)
 	if os.IsNotExist(err) {
-		logger.Log.Warn("metrics file not found, skipping restore", zap.String("path", s.fileToSave))
+		logger.Log.Warn("MEM metrics file not found, skipping restore", zap.String("path", s.fileToSave))
 		return nil
 	}
 	if err != nil {
@@ -145,14 +150,14 @@ func (s *MemStorage) LoadData() error {
 	s.Gauge = save.Gauge
 	s.Counter = save.Counter
 
-	logger.Log.Info("metrics loaded successfully", zap.String("path", s.fileToSave))
+	logger.Log.Info("MEM metrics loaded successfully", zap.String("path", s.fileToSave))
 	return nil
 }
 
-func (s *MemStorage) SaveHandler(interval int) {
+func (s *MemStorageData) SaveHandler(interval int) {
 	for {
 		if err := s.SaveData(); err != nil {
-			logger.Log.Error("SaveHandler", zap.Error(err))
+			logger.Log.Error("MEM SaveHandler", zap.Error(err))
 		}
 
 		time.Sleep(time.Duration(interval) * time.Second)

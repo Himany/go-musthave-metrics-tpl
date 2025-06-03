@@ -30,27 +30,38 @@ func main() {
 		zap.String("dataBaseDSN", dataBaseDSN),
 	)
 
-	db, err := sql.Open("pgx", dataBaseDSN)
-	if err != nil {
-		logger.Log.Fatal("failed to open database (postgres)", zap.Error(err))
-	}
-	defer db.Close()
-
-	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
-	handler := &handlers.Handler{Repo: memStorage, DB: db}
-	if restore && fileStoragePath != "" {
-		if err := memStorage.LoadData(); err != nil {
-			logger.Log.Fatal("failed to load data", zap.Error(err))
+	handler := &handlers.Handler{}
+	if dataBaseDSN != "" {
+		db, err := sql.Open("pgx", dataBaseDSN)
+		if err != nil {
+			logger.Log.Error("failed to open database (postgres)", zap.Error(err))
+		} else {
+			repo, err := storage.NewPostgresStorage(db)
+			if err != nil {
+				db.Close()
+				logger.Log.Fatal("failed to init database storage", zap.Error(err))
+			}
+			handler.Repo = repo
+			defer db.Close()
 		}
-	}
-	defer func() {
-		if err := memStorage.SaveData(); err != nil {
-			logger.Log.Error("failed to save data on shutdown", zap.Error(err))
+	} else {
+		memStorage := storage.NewMemStorage(fileStoragePath, ((storeInterval == 0) && fileStoragePath != ""))
+		handler.Repo = memStorage
+		if restore && fileStoragePath != "" {
+			if err := memStorage.LoadData(); err != nil {
+				logger.Log.Fatal("failed to load data", zap.Error(err))
+			}
 		}
-	}()
-
-	if storeInterval != 0 {
-		go memStorage.SaveHandler(storeInterval)
+		if fileStoragePath != "" {
+			defer func() {
+				if err := memStorage.SaveData(); err != nil {
+					logger.Log.Error("failed to save data on shutdown", zap.Error(err))
+				}
+			}()
+			if storeInterval != 0 {
+				go memStorage.SaveHandler(storeInterval)
+			}
+		}
 	}
 
 	if err := server.Run(handler, runAddr); err != nil {

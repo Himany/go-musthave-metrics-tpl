@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 )
 
 type MetricsRepo interface {
+	Ping() error
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetGauge(name string) (float64, bool)
@@ -28,7 +28,6 @@ type MetricsRepo interface {
 
 type Handler struct {
 	Repo MetricsRepo
-	DB   *sql.DB
 }
 
 func (h *Handler) getStringValue(metricType string, metricName string) (string, bool) {
@@ -143,7 +142,7 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
-	if err := h.DB.Ping(); err != nil {
+	if err := h.Repo.Ping(); err != nil {
 		logger.Log.Error("GetPing", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
