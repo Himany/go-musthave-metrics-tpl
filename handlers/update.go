@@ -1,14 +1,19 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
 )
 
@@ -40,7 +45,7 @@ func (h *Handler) getStringValue(metricType string, metricName string) (string, 
 	}
 }
 
-func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -59,8 +64,8 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value, isOk := h.getStringValue(metricType, metricName)
-	if !isOk {
+	value, ok := h.getStringValue(metricType, metricName)
+	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -68,7 +73,73 @@ func (h *Handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write([]byte(value)); err != nil {
-		log.Error(err)
+		logger.Log.Error("GetMetric", zap.Error(err))
+	}
+}
+
+func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metrics models.Metrics
+	var buf bytes.Buffer
+
+	//читаем тело запроса
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		logger.Log.Error("GetMetricJson", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		logger.Log.Error("GetMetricJson", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//Проверка объекта
+	if err = validateGetMetricJSON(metrics); err != nil {
+		logger.Log.Error("GetMetricJson", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//Получаем данные
+	switch metrics.MType {
+	case "gauge":
+		value, ok := h.Repo.GetGauge(metrics.ID)
+		if !(ok) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		metrics.Value = &value
+	case "counter":
+		value, ok := h.Repo.GetCounter(metrics.ID)
+		if !(ok) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		metrics.Delta = &value
+	}
+
+	//Отвечаем на запрос
+	resp, err := json.Marshal(metrics)
+	if err != nil {
+		logger.Log.Error("GetMetricJson", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(resp); err != nil {
+		logger.Log.Error("GetMetricJson", zap.Error(err))
 	}
 }
 
@@ -94,11 +165,13 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	resultString := strings.Join(list, "\n")
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+
 	_, _ = w.Write([]byte(resultString))
 }
 
-func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "text/plain") {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
@@ -118,8 +191,8 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.updateData(metricType, metricName, metricValue); err != nil {
-		log.Error(err)
+	if err := h.updateDataQuery(metricType, metricName, metricValue); err != nil {
+		logger.Log.Error("UpdateHandlerQuery", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -128,7 +201,105 @@ func (h *Handler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) updateData(metricType, metricName, metricValue string) error {
+func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metrics models.Metrics
+	var buf bytes.Buffer
+
+	//читаем тело запроса
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//Проверка объекта
+	if err = validateUpdateJSON(metrics); err != nil {
+		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//Обновляем данные
+	switch metrics.MType {
+	case "gauge":
+		h.Repo.UpdateGauge(metrics.ID, *metrics.Value)  //Обновляем данные в хранилище
+		*metrics.Value, _ = h.Repo.GetGauge(metrics.ID) //Обновляем данные в структуре для ответа
+	case "counter":
+		value := *metrics.Delta
+		old, ok := h.Repo.GetCounter(metrics.ID)
+		if ok {
+			value += old
+		}
+		h.Repo.UpdateCounter(metrics.ID, value)           //Обновляем данные в хранилище
+		*metrics.Delta, _ = h.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
+	}
+
+	//Отвечаем на запрос
+	resp, err := json.Marshal(metrics)
+	if err != nil {
+		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(resp); err != nil {
+		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
+	}
+}
+
+func validateUpdateJSON(metrics models.Metrics) error {
+	if metrics.ID == "" {
+		return errors.New("field 'id' is required")
+	}
+
+	if !((metrics.MType == "gauge") || (metrics.MType == "counter")) {
+		return errors.New("field 'type' must have a value of 'gauge' or 'counter'")
+	}
+
+	switch metrics.MType {
+	case "gauge":
+		if metrics.Value == nil {
+			return errors.New("field 'value' is required (with the 'gauge' type)")
+		}
+	case "counter":
+		if metrics.Delta == nil {
+			return errors.New("field 'delta' is required (with the 'counter' type)")
+		}
+	}
+
+	return nil
+}
+
+func validateGetMetricJSON(metrics models.Metrics) error {
+	if metrics.ID == "" {
+		return errors.New("field 'id' is required")
+	}
+
+	if !((metrics.MType == "gauge") || (metrics.MType == "counter")) {
+		return errors.New("field 'type' must have a value of 'gauge' or 'counter'")
+	}
+
+	return nil
+}
+
+func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) error {
 	switch metricType {
 	case "gauge":
 		val, err := strconv.ParseFloat(metricValue, 64)
