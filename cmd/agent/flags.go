@@ -3,33 +3,24 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"strconv"
 
-	"github.com/caarlos0/env/v6"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
+	"github.com/caarlos0/env/v11"
 )
 
-type Config struct {
-	Address        string `env:"ADDRESS"`
-	ReportInterval string `env:"REPORT_INTERVAL"`
-	PollInterval   string `env:"POLL_INTERVAL"`
-}
-
-func parseConfig() (string, int, int, error) {
+func parseConfig() (string, int, int, string, error) {
 	var flagRunAddr = flag.String("a", "localhost:8080", "address and port to run server")
 	var flagReportSeconds = flag.Int("r", 10, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", 2, "poll interval in seconds")
-
-	if flagRunAddr == nil || flagReportSeconds == nil || flagPollSeconds == nil {
-		log.Fatal("Flags init error")
-	}
+	var flagLogLevel = flag.String("l", "info", "log level")
 
 	flag.Parse()
 
-	var cfg Config
+	var cfg config.Config
 	err := env.Parse(&cfg)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("error parsing env: %w", err)
+		return "", 0, 0, "", fmt.Errorf("error parsing env: %w", err)
 	}
 
 	runAddr := *flagRunAddr
@@ -51,5 +42,10 @@ func parseConfig() (string, int, int, error) {
 		}
 	}
 
-	return "http://" + runAddr, reportInterval, pollInterval, nil
+	logLvl := *flagLogLevel
+	if cfg.LogLevel != "" {
+		logLvl = cfg.LogLevel
+	}
+
+	return "http://" + runAddr, reportInterval, pollInterval, logLvl, nil
 }

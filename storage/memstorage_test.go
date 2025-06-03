@@ -8,7 +8,7 @@ import (
 )
 
 func TestMemStorage_UpdateGauge(t *testing.T) {
-	repo := NewMemStorage()
+	repo := NewMemStorage("", false)
 
 	testCases := []struct {
 		key           string
@@ -17,10 +17,10 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 		addValue      bool
 		isOk          bool
 	}{
-		{key: "test1", value: 42.21, expectedValue: 42.21, addValue: true, isOk: true},
-		{key: "test2", value: -42.21, expectedValue: -42.21, addValue: true, isOk: true},
-		{key: "test3", value: 0, expectedValue: 0, addValue: true, isOk: true},
-		{key: "test4", value: 42.21, expectedValue: 42.21, addValue: false, isOk: false},
+		{key: "ADD_POS_FLOAT", value: 42.21, expectedValue: 42.21, addValue: true, isOk: true},
+		{key: "ADD_NEG_FLOAT", value: -42.21, expectedValue: -42.21, addValue: true, isOk: true},
+		{key: "ADD_ZERO", value: 0, expectedValue: 0, addValue: true, isOk: true},
+		{key: "ADD_POS_FLOAT_2", value: 42.21, expectedValue: 42.21, addValue: false, isOk: false},
 	}
 
 	for _, tc := range testCases {
@@ -39,7 +39,7 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 }
 
 func TestMemStorage_UpdateCounter(t *testing.T) {
-	repo := NewMemStorage()
+	repo := NewMemStorage("", false)
 
 	testCases := []struct {
 		key           string
@@ -48,10 +48,10 @@ func TestMemStorage_UpdateCounter(t *testing.T) {
 		addValue      bool
 		isOk          bool
 	}{
-		{key: "test1", value: 42, expectedValue: 42, addValue: true, isOk: true},
-		{key: "test2", value: -42, expectedValue: -42, addValue: true, isOk: true},
-		{key: "test3", value: 0, expectedValue: 0, addValue: true, isOk: true},
-		{key: "test4", value: 42, expectedValue: 42, addValue: false, isOk: false},
+		{key: "ADD_POS_INT", value: 42, expectedValue: 42, addValue: true, isOk: true},
+		{key: "ADD_NEG_INT", value: -42, expectedValue: -42, addValue: true, isOk: true},
+		{key: "ADD_ZERO", value: 0, expectedValue: 0, addValue: true, isOk: true},
+		{key: "ADD_POS_INT_2", value: 42, expectedValue: 42, addValue: false, isOk: false},
 	}
 
 	for _, tc := range testCases {
