@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -16,6 +17,7 @@ type DBStorage interface {
 	GetCounter(name string) (int64, bool)
 	GetKeyGauge() []string
 	GetKeyCounter() []string
+	BatchUpdate(metrics []models.Metrics) error
 }
 
 type dbStorageData struct {
@@ -152,4 +154,49 @@ func (s *dbStorageData) GetKeyCounter() []string {
 	}
 
 	return keys
+}
+
+func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	for _, m := range metrics {
+		switch m.MType {
+		case "gauge":
+			if m.Value == nil {
+				continue
+			}
+			_, err := tx.Exec(`
+				INSERT INTO gauges (id, value) VALUES ($1, $2)
+				ON CONFLICT (id) DO UPDATE SET value = $2;
+			`, m.ID, *m.Value)
+			if err != nil {
+				return err
+			}
+
+		case "counter":
+			if m.Delta == nil {
+				continue
+			}
+			_, err := tx.Exec(`
+				INSERT INTO counters (id, delta) VALUES ($1, $2)
+				ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
+			`, m.ID, *m.Delta)
+			if err != nil {
+				return err
+			}
+		default:
+			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }

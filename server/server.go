@@ -23,5 +23,7 @@ func Run(handler *handlers.Handler, flagRunAddr string) error {
 	r.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
 	r.Post("/update/", handler.UpdateHandlerJSON)
 
+	r.Post("/updates/", handler.BatchUpdateJSON)
+
 	return http.ListenAndServe(flagRunAddr, logger.RequestLogger(middleware.Gzip(r)))
 }

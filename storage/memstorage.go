@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 	"go.uber.org/zap"
 )
 
@@ -21,6 +22,7 @@ type MemStorage interface {
 	SaveData() error
 	LoadData() error
 	SaveHandler(int)
+	BatchUpdate(metrics []models.Metrics) error
 }
 
 type MemStorageData struct {
@@ -162,4 +164,26 @@ func (s *MemStorageData) SaveHandler(interval int) {
 
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
+}
+
+func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
+	for _, m := range metrics {
+		switch m.MType {
+		case "gauge":
+			if m.Value == nil {
+				continue
+			}
+			s.Gauge[m.ID] = *m.Value
+
+		case "counter":
+			if m.Delta == nil {
+				continue
+			}
+			s.Counter[m.ID] = *m.Delta
+		default:
+			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
+		}
+	}
+
+	return nil
 }

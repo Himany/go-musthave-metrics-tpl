@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"math/rand/v2"
 	"runtime"
 	"sync"
@@ -55,6 +56,64 @@ func compressBody(v models.Metrics) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func compressBatchBody(v []models.Metrics) ([]byte, error) {
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+
+	if _, err := gz.Write(jsonData); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (a *agent) createBatchRequest(metrics []models.Metrics) error {
+	if len(metrics) == 0 {
+		return errors.New("empty metrics")
+	}
+
+	body, err := compressBatchBody(metrics)
+	if err != nil {
+		return err
+	}
+
+	start := time.Now()
+
+	resp, err := a.Client.R().
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Content-Type", "application/json").
+		SetBody(body).
+		Post(a.URL + "/updates/")
+
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
+
+	logger.Log.Info("HTTP BATCH request",
+		zap.String("uri", a.URL+"/updates/"),
+		zap.String("method", "POST"),
+		zap.Duration("duration", duration),
+	)
+	logger.Log.Info("HTTP BATCH answer",
+		zap.Int("status", resp.StatusCode()),
+		zap.Int("size", len(resp.Body())),
+		zap.String("body", resp.String()),
+	)
+
+	return nil
 }
 
 func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) {
@@ -143,13 +202,38 @@ func (a *agent) metricHandler() {
 
 func (a *agent) reportHandler() {
 	for {
+		/*
+			a.Mutex.Lock()
+			for key := range a.Metrics {
+				value := a.Metrics[key]
+				a.createRequest("gauge", key, nil, &value)
+			}
+			a.Mutex.Unlock()
+			a.createRequest("counter", "PollCount", &a.PollCount, nil)
+		*/
+
 		a.Mutex.Lock()
-		for key := range a.Metrics {
-			value := a.Metrics[key]
-			a.createRequest("gauge", key, nil, &value)
+
+		var batch []models.Metrics
+		for key, value := range a.Metrics {
+			val := value
+			batch = append(batch, models.Metrics{
+				ID:    key,
+				MType: "gauge",
+				Value: &val,
+			})
 		}
+		batch = append(batch, models.Metrics{
+			ID:    "PollCount",
+			MType: "counter",
+			Delta: &a.PollCount,
+		})
+
 		a.Mutex.Unlock()
-		a.createRequest("counter", "PollCount", &a.PollCount, nil)
+		err := a.createBatchRequest(batch)
+		if err != nil {
+			logger.Log.Error("createBatchRequest", zap.Error(err))
+		}
 
 		time.Sleep(time.Duration(a.ReportInterval) * time.Second)
 	}
