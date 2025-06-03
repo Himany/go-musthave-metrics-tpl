@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type DbStorage interface {
+type DBStorage interface {
 	Ping() error
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
