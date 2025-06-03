@@ -15,6 +15,8 @@ func Run(handler *handlers.Handler, flagRunAddr string) error {
 
 	r.Get("/", middleware.CheckPlainTextContentType(handler.GetAllMetrics))
 
+	r.Get("/ping", handler.GetPing)
+
 	r.Get("/value/{type}/{name}", middleware.CheckPlainTextContentType(handler.GetMetricQuery))
 	r.Post("/value/", handler.GetMetricJSON)
 

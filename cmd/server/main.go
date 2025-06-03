@@ -1,12 +1,16 @@
 package main
 
 import (
+	"database/sql"
+
 	"go.uber.org/zap"
 
 	"github.com/Himany/go-musthave-metrics-tpl/handlers"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/server"
 	"github.com/Himany/go-musthave-metrics-tpl/storage"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -23,9 +27,17 @@ func main() {
 		zap.String("fileStoragePath", fileStoragePath),
 		zap.Int("storeInterval", storeInterval),
 		zap.Bool("restore", restore),
+		zap.String("dataBaseDSN", dataBaseDSN),
 	)
+
+	db, err := sql.Open("pgx", dataBaseDSN)
+	if err != nil {
+		logger.Log.Fatal("failed to open database (postgres)", zap.Error(err))
+	}
+	defer db.Close()
+
 	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
-	handler := &handlers.Handler{Repo: memStorage}
+	handler := &handlers.Handler{Repo: memStorage, DB: db}
 	if restore && fileStoragePath != "" {
 		if err := memStorage.LoadData(); err != nil {
 			logger.Log.Fatal("failed to load data", zap.Error(err))

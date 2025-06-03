@@ -7,7 +7,7 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-var runAddr, logLevel, fileStoragePath string
+var runAddr, logLevel, fileStoragePath, dataBaseDSN string
 var storeInterval int
 var restore bool
 
@@ -19,6 +19,7 @@ func parseFlags() error {
 	var flagStoreInterval = flag.Int("i", 300, "time interval in seconds after which the current server readings are saved to disk")
 	var flagFileStoragePath = flag.String("f", "metrics_data", "the path to the file where the current values are saved")
 	var flagRestore = flag.Bool("r", false, "whether or not to download previously saved values from the specified file at server startup")
+	var flagDataBaseDSN = flag.String("d", "host=localhost user=postgres password=123321 dbname=metrics sslmode=disable", "A string with settings for connecting the postgresql database")
 
 	flag.Parse()
 
@@ -55,6 +56,11 @@ func parseFlags() error {
 	restore = *flagRestore
 	if envSet["RESTORE"] {
 		restore = cfg.Restore
+	}
+
+	dataBaseDSN = *flagDataBaseDSN
+	if (envSet["DATABASE_DSN"]) && (cfg.DataBaseDSN != "") {
+		dataBaseDSN = cfg.DataBaseDSN
 	}
 
 	return nil

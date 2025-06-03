@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,7 @@ type MetricsRepo interface {
 
 type Handler struct {
 	Repo MetricsRepo
+	DB   *sql.DB
 }
 
 func (h *Handler) getStringValue(metricType string, metricName string) (string, bool) {
@@ -138,6 +140,17 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(resp); err != nil {
 		logger.Log.Error("GetMetricJson", zap.Error(err))
 	}
+}
+
+func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
+	if err := h.DB.Ping(); err != nil {
+		logger.Log.Error("GetPing", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
