@@ -1,15 +1,20 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
+	"errors"
 	"math/rand/v2"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
+
+	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 )
 
 type agent struct {
@@ -33,21 +38,145 @@ func createAgent(url string, reportInterval int, pollInterval int) *agent {
 	})
 }
 
-func (a *agent) createRequest(metricType, name, value string) {
-	resp, err := a.Client.R().
-		SetHeader("Content-Type", "text/plain").
-		SetPathParams(map[string]string{
-			"mType":  metricType,
-			"mName":  name,
-			"mValue": value,
-		}).
-		Post(a.URL + "/{mType}/{mName}/{mValue}")
-
+func compressBody(v models.Metrics) ([]byte, error) {
+	jsonData, err := json.Marshal(v)
 	if err != nil {
-		fmt.Printf("Ошибка (%s): %v\n", a.URL+"/"+metricType+"/"+name+"/"+value, err)
-		return
+		return nil, err
 	}
-	fmt.Printf("%s: %d\n", a.URL+"/"+metricType+"/"+name+"/"+value, resp.StatusCode())
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+
+	if _, err := gz.Write(jsonData); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func compressBatchBody(v []models.Metrics) ([]byte, error) {
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+
+	if _, err := gz.Write(jsonData); err != nil {
+		return nil, err
+	}
+
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (a *agent) retryGzipJSONRequest(body []byte, route string) (*resty.Response, time.Duration, error) {
+	retryDelays := []int{0, 1, 3, 5}
+	var lastErr error
+	var lastResp *resty.Response
+
+	start := time.Now()
+	for attempt := 0; attempt < len(retryDelays); attempt++ {
+		resp, err := a.Client.R().
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Content-Type", "application/json").
+			SetBody(body).
+			Post(a.URL + route)
+
+		if err == nil {
+			duration := time.Since(start)
+
+			return resp, duration, nil
+		} else {
+			lastErr = err
+			lastResp = resp
+		}
+
+		if resp != nil && !(resp.StatusCode() == 502 || resp.StatusCode() == 503 || resp.StatusCode() == 504 || resp.StatusCode() == 429) {
+			break
+		}
+
+		if retryDelays[attempt] != 0 {
+			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
+		}
+	}
+
+	return lastResp, time.Since(start), lastErr
+}
+
+func (a *agent) createBatchRequest(metrics []models.Metrics) error {
+	if len(metrics) == 0 {
+		return errors.New("empty metrics")
+	}
+
+	body, err := compressBatchBody(metrics)
+	if err != nil {
+		return err
+	}
+
+	var route = "/updates/"
+	resp, duration, err := a.retryGzipJSONRequest(body, route)
+
+	if err == nil && resp != nil {
+		logger.Log.Info("HTTP BATCH request",
+			zap.String("uri", a.URL+route),
+			zap.String("method", "POST"),
+			zap.Duration("duration", duration),
+		)
+
+		logger.Log.Info("HTTP BATCH answer",
+			zap.Int("status", resp.StatusCode()),
+			zap.Int("size", len(resp.Body())),
+			zap.String("body", resp.String()),
+		)
+
+		return nil
+	}
+
+	return err
+}
+
+func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) error {
+	metrics := models.Metrics{
+		ID:    name,
+		MType: metricType,
+		Delta: delta,
+		Value: value,
+	}
+
+	body, err := compressBody(metrics)
+	if err != nil {
+		return err
+	}
+
+	var route = "/update/"
+	resp, duration, err := a.retryGzipJSONRequest(body, route)
+
+	if err == nil && resp != nil {
+		logger.Log.Info("HTTP request",
+			zap.String("uri", a.URL+route),
+			zap.String("method", "POST"),
+			zap.Duration("duration", duration),
+		)
+
+		logger.Log.Info("HTTP answer",
+			zap.Int("status", resp.StatusCode()),
+			zap.Int("size", len(resp.Body())),
+			zap.String("body", resp.String()),
+		)
+
+		return nil
+	}
+
+	return err
 }
 
 func (a *agent) metricHandler() {
@@ -82,6 +211,8 @@ func (a *agent) metricHandler() {
 		a.Metrics["StackSys"] = float64(s.StackSys)
 		a.Metrics["Sys"] = float64(s.Sys)
 		a.Metrics["TotalAlloc"] = float64(s.TotalAlloc)
+		a.Metrics["Frees"] = float64(s.Frees)
+		a.Metrics["GCSys"] = float64(s.GCSys)
 		a.Metrics["RandomValue"] = rand.Float64()
 
 		a.PollCount++
@@ -93,21 +224,58 @@ func (a *agent) metricHandler() {
 
 func (a *agent) reportHandler() {
 	for {
+		/*
+			a.Mutex.Lock()
+			for key := range a.Metrics {
+				value := a.Metrics[key]
+				err := a.createRequest("gauge", key, nil, &value)
+				if err != nil {
+					logger.Log.Error("createRequest gauge", zap.Error(err))
+				}
+			}
+			a.Mutex.Unlock()
+
+			err := a.createRequest("counter", "PollCount", &a.PollCount, nil)
+			if err != nil {
+				logger.Log.Error("createRequest counter", zap.Error(err))
+			}
+		*/
+
 		a.Mutex.Lock()
+
+		var batch []models.Metrics
 		for key, value := range a.Metrics {
-			a.createRequest("gauge", key, strconv.FormatFloat(value, 'f', -1, 64))
+			val := value
+			batch = append(batch, models.Metrics{
+				ID:    key,
+				MType: "gauge",
+				Value: &val,
+			})
 		}
+		batch = append(batch, models.Metrics{
+			ID:    "PollCount",
+			MType: "counter",
+			Delta: &a.PollCount,
+		})
+
 		a.Mutex.Unlock()
-		a.createRequest("counter", "PollCount", strconv.FormatInt(a.PollCount, 10))
+		err := a.createBatchRequest(batch)
+		if err != nil {
+			logger.Log.Error("createBatchRequest", zap.Error(err))
+		}
 
 		time.Sleep(time.Duration(a.ReportInterval) * time.Second)
 	}
 }
 
 func main() {
-	url, reportInterval, pollInterval, err := parseConfig()
+	url, reportInterval, pollInterval, logLevel, err := parseConfig()
 	if err != nil {
-		log.Fatal(err)
+		panic("failed to initialize flags: " + err.Error())
+	}
+
+	if err := logger.Initialize(logLevel); err != nil {
+		panic("failed to initialize logger: " + err.Error())
 	}
 
 	agent := createAgent(url, reportInterval, pollInterval)
