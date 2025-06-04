@@ -2,10 +2,14 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
 
@@ -53,23 +57,23 @@ func (s *dbStorageData) Ping() error {
 }
 
 func (s *dbStorageData) UpdateGauge(name string, value float64) {
-	_, err := s.db.Exec(`
-		INSERT INTO gauges (id, value) VALUES ($1, $2)
-		ON CONFLICT (id) DO UPDATE SET value = $2;
-	`, name, value)
-	if err != nil {
-		logger.Log.Error("DB UpdateGauge failed", zap.Error(err))
-	}
+	withDBRetry(func() error {
+		_, err := s.db.Exec(`
+			INSERT INTO gauges (id, value) VALUES ($1, $2)
+			ON CONFLICT (id) DO UPDATE SET value = $2;
+		`, name, value)
+		return err
+	}, "UpdateGauge")
 }
 
 func (s *dbStorageData) UpdateCounter(name string, value int64) {
-	_, err := s.db.Exec(`
-		INSERT INTO counters (id, delta) VALUES ($1, $2)
-		ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
-	`, name, value)
-	if err != nil {
-		logger.Log.Error("DB UpdateCounter failed", zap.Error(err))
-	}
+	withDBRetry(func() error {
+		_, err := s.db.Exec(`
+			INSERT INTO counters (id, delta) VALUES ($1, $2)
+			ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
+		`, name, value)
+		return err
+	}, "UpdateCounter")
 }
 
 func (s *dbStorageData) GetGauge(name string) (float64, bool) {
@@ -157,46 +161,100 @@ func (s *dbStorageData) GetKeyCounter() []string {
 }
 
 func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
+	return withDBRetry(func() error {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
 
-	defer tx.Rollback()
+		defer tx.Rollback()
 
-	for _, m := range metrics {
-		switch m.MType {
-		case "gauge":
-			if m.Value == nil {
-				continue
-			}
-			_, err := tx.Exec(`
-				INSERT INTO gauges (id, value) VALUES ($1, $2)
-				ON CONFLICT (id) DO UPDATE SET value = $2;
-			`, m.ID, *m.Value)
-			if err != nil {
-				return err
-			}
+		for _, m := range metrics {
+			switch m.MType {
+			case "gauge":
+				if m.Value == nil {
+					continue
+				}
+				_, err := tx.Exec(`
+					INSERT INTO gauges (id, value) VALUES ($1, $2)
+					ON CONFLICT (id) DO UPDATE SET value = $2;
+				`, m.ID, *m.Value)
+				if err != nil {
+					return err
+				}
 
-		case "counter":
-			if m.Delta == nil {
-				continue
+			case "counter":
+				if m.Delta == nil {
+					continue
+				}
+				_, err := tx.Exec(`
+					INSERT INTO counters (id, delta) VALUES ($1, $2)
+					ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
+				`, m.ID, *m.Delta)
+				if err != nil {
+					return err
+				}
+			default:
+				logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
 			}
-			_, err := tx.Exec(`
-				INSERT INTO counters (id, delta) VALUES ($1, $2)
-				ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
-			`, m.ID, *m.Delta)
-			if err != nil {
-				return err
-			}
-		default:
-			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
+		}
+
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+
+		return nil
+	}, "BatchUpdate")
+}
+
+func withDBRetry(operation func() error, inType string) error {
+	retryDelays := []int{0, 1, 3, 5}
+	var lastErr error
+
+	for attempt := 0; attempt < len(retryDelays); attempt++ {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if !isRetriableDBError(err) {
+			return err
+		}
+
+		logger.Log.Warn("Retriable DB",
+			zap.String("operation", inType),
+			zap.Int("attempt", attempt+1),
+			zap.Error(err),
+		)
+
+		if retryDelays[attempt] != 0 {
+			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
+	logger.Log.Error("DB operation failed",
+		zap.String("operation", inType),
+		zap.Error(lastErr),
+	)
 
-	return nil
+	return lastErr
+}
+
+func isRetriableDBError(err error) bool {
+	var pgErr *pgconn.PgError
+	var mapErrors = map[string]bool{
+		pgerrcode.ConnectionException:                           true,
+		pgerrcode.ConnectionDoesNotExist:                        true,
+		pgerrcode.ConnectionFailure:                             true,
+		pgerrcode.SQLClientUnableToEstablishSQLConnection:       true,
+		pgerrcode.SQLServerRejectedEstablishmentOfSQLConnection: true,
+		pgerrcode.TransactionResolutionUnknown:                  true,
+	}
+	if errors.As(err, &pgErr) {
+		if result, ok := mapErrors[pgErr.Code]; ok && result {
+			return true
+		}
+	}
+	return false
 }

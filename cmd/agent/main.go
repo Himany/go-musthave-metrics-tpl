@@ -78,6 +78,40 @@ func compressBatchBody(v []models.Metrics) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (a *agent) retryGzipJSONRequest(body []byte, route string) (*resty.Response, time.Duration, error) {
+	retryDelays := []int{0, 1, 3, 5}
+	var lastErr error
+	var lastResp *resty.Response
+
+	start := time.Now()
+	for attempt := 0; attempt < len(retryDelays); attempt++ {
+		resp, err := a.Client.R().
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Content-Type", "application/json").
+			SetBody(body).
+			Post(a.URL + route)
+
+		if err == nil {
+			duration := time.Since(start)
+
+			return resp, duration, nil
+		} else {
+			lastErr = err
+			lastResp = resp
+		}
+
+		if resp != nil && resp.StatusCode() >= 400 && resp.StatusCode() < 500 {
+			break
+		}
+
+		if retryDelays[attempt] != 0 {
+			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
+		}
+	}
+
+	return lastResp, time.Since(start), lastErr
+}
+
 func (a *agent) createBatchRequest(metrics []models.Metrics) error {
 	if len(metrics) == 0 {
 		return errors.New("empty metrics")
@@ -88,35 +122,29 @@ func (a *agent) createBatchRequest(metrics []models.Metrics) error {
 		return err
 	}
 
-	start := time.Now()
+	var route = "/updates/"
+	resp, duration, err := a.retryGzipJSONRequest(body, route)
 
-	resp, err := a.Client.R().
-		SetHeader("Content-Encoding", "gzip").
-		SetHeader("Content-Type", "application/json").
-		SetBody(body).
-		Post(a.URL + "/updates/")
+	if err == nil && resp != nil {
+		logger.Log.Info("HTTP BATCH request",
+			zap.String("uri", a.URL+route),
+			zap.String("method", "POST"),
+			zap.Duration("duration", duration),
+		)
 
-	if err != nil {
-		return err
+		logger.Log.Info("HTTP BATCH answer",
+			zap.Int("status", resp.StatusCode()),
+			zap.Int("size", len(resp.Body())),
+			zap.String("body", resp.String()),
+		)
+
+		return nil
 	}
 
-	duration := time.Since(start)
-
-	logger.Log.Info("HTTP BATCH request",
-		zap.String("uri", a.URL+"/updates/"),
-		zap.String("method", "POST"),
-		zap.Duration("duration", duration),
-	)
-	logger.Log.Info("HTTP BATCH answer",
-		zap.Int("status", resp.StatusCode()),
-		zap.Int("size", len(resp.Body())),
-		zap.String("body", resp.String()),
-	)
-
-	return nil
+	return err
 }
 
-func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) {
+func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) error {
 	metrics := models.Metrics{
 		ID:    name,
 		MType: metricType,
@@ -126,35 +154,29 @@ func (a *agent) createRequest(metricType string, name string, delta *int64, valu
 
 	body, err := compressBody(metrics)
 	if err != nil {
-		logger.Log.Error("compressBody", zap.Error(err))
-		return
+		return err
 	}
 
-	start := time.Now()
+	var route = "/update/"
+	resp, duration, err := a.retryGzipJSONRequest(body, route)
 
-	resp, err := a.Client.R().
-		SetHeader("Content-Encoding", "gzip").
-		SetHeader("Content-Type", "application/json").
-		SetBody(body).
-		Post(a.URL + "/update/")
+	if err == nil && resp != nil {
+		logger.Log.Info("HTTP request",
+			zap.String("uri", a.URL+route),
+			zap.String("method", "POST"),
+			zap.Duration("duration", duration),
+		)
 
-	if err != nil {
-		logger.Log.Error("createRequest", zap.Error(err))
-		return
+		logger.Log.Info("HTTP answer",
+			zap.Int("status", resp.StatusCode()),
+			zap.Int("size", len(resp.Body())),
+			zap.String("body", resp.String()),
+		)
+
+		return nil
 	}
 
-	duration := time.Since(start)
-
-	logger.Log.Info("HTTP request",
-		zap.String("uri", a.URL+"/update/"),
-		zap.String("method", "POST"),
-		zap.Duration("duration", duration),
-	)
-	logger.Log.Info("HTTP answer",
-		zap.Int("status", resp.StatusCode()),
-		zap.Int("size", len(resp.Body())),
-		zap.String("body", resp.String()),
-	)
+	return err
 }
 
 func (a *agent) metricHandler() {
@@ -206,10 +228,17 @@ func (a *agent) reportHandler() {
 			a.Mutex.Lock()
 			for key := range a.Metrics {
 				value := a.Metrics[key]
-				a.createRequest("gauge", key, nil, &value)
+				err := a.createRequest("gauge", key, nil, &value)
+				if err != nil {
+					logger.Log.Error("createRequest gauge", zap.Error(err))
+				}
 			}
 			a.Mutex.Unlock()
-			a.createRequest("counter", "PollCount", &a.PollCount, nil)
+
+			err := a.createRequest("counter", "PollCount", &a.PollCount, nil)
+			if err != nil {
+				logger.Log.Error("createRequest counter", zap.Error(err))
+			}
 		*/
 
 		a.Mutex.Lock()

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
@@ -102,31 +103,33 @@ func (s *MemStorageData) SaveData() error {
 		return errors.New("MEM file is not specified")
 	}
 
-	// создаем файл
-	file, err := os.OpenFile(s.fileToSave, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	return withFileRetry(func() error {
+		// создаем файл
+		file, err := os.OpenFile(s.fileToSave, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
 
-	// сериализуем структуру в JSON формат
-	data, err := json.Marshal(saveFormat{
-		Gauge:   s.Gauge,
-		Counter: s.Counter,
-	})
-	if err != nil {
-		return err
-	}
+		// сериализуем структуру в JSON формат
+		data, err := json.Marshal(saveFormat{
+			Gauge:   s.Gauge,
+			Counter: s.Counter,
+		})
+		if err != nil {
+			return err
+		}
 
-	// сохраняем данные в файл
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
+		// сохраняем данные в файл
+		_, err = file.Write(data)
+		if err != nil {
+			return err
+		}
 
-	logger.Log.Info("MEM metrics saved successfully", zap.String("path", s.fileToSave))
+		logger.Log.Info("MEM metrics saved successfully", zap.String("path", s.fileToSave))
 
-	return nil
+		return nil
+	}, "SaveData")
 }
 
 func (s *MemStorageData) LoadData() error {
@@ -134,26 +137,28 @@ func (s *MemStorageData) LoadData() error {
 		return errors.New("MEM file is not specified")
 	}
 
-	var save saveFormat
+	return withFileRetry(func() error {
+		var save saveFormat
 
-	data, err := os.ReadFile(s.fileToSave)
-	if os.IsNotExist(err) {
-		logger.Log.Warn("MEM metrics file not found, skipping restore", zap.String("path", s.fileToSave))
+		data, err := os.ReadFile(s.fileToSave)
+		if os.IsNotExist(err) {
+			logger.Log.Warn("MEM metrics file not found, skipping restore", zap.String("path", s.fileToSave))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := json.Unmarshal(data, &save); err != nil {
+			return err
+		}
+
+		s.Gauge = save.Gauge
+		s.Counter = save.Counter
+
+		logger.Log.Info("MEM metrics loaded successfully", zap.String("path", s.fileToSave))
 		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(data, &save); err != nil {
-		return err
-	}
-
-	s.Gauge = save.Gauge
-	s.Counter = save.Counter
-
-	logger.Log.Info("MEM metrics loaded successfully", zap.String("path", s.fileToSave))
-	return nil
+	}, "LoadData")
 }
 
 func (s *MemStorageData) SaveHandler(interval int) {
@@ -186,4 +191,42 @@ func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
 	}
 
 	return nil
+}
+
+func withFileRetry(operation func() error, inType string) error {
+	retryDelays := []int{0, 1, 3, 5}
+	var lastErr error
+
+	for attempt := 0; attempt < len(retryDelays); attempt++ {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if !isRetriableFileError(err) {
+			return err
+		}
+
+		logger.Log.Warn("Retriable File",
+			zap.String("operation", inType),
+			zap.Int("attempt", attempt+1),
+			zap.Error(err),
+		)
+
+		if retryDelays[attempt] != 0 {
+			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
+		}
+	}
+
+	logger.Log.Error("File operation failed",
+		zap.String("operation", inType),
+		zap.Error(lastErr),
+	)
+
+	return lastErr
+}
+
+func isRetriableFileError(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "temporarily unavailable") || strings.Contains(err.Error(), "resource busy") || strings.Contains(err.Error(), "locked"))
 }
