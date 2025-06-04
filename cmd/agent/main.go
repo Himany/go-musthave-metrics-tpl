@@ -100,7 +100,7 @@ func (a *agent) retryGzipJSONRequest(body []byte, route string) (*resty.Response
 			lastResp = resp
 		}
 
-		if resp != nil && resp.StatusCode() >= 400 && resp.StatusCode() < 500 {
+		if resp != nil && !(resp.StatusCode() == 502 || resp.StatusCode() == 503 || resp.StatusCode() == 504 || resp.StatusCode() == 429) {
 			break
 		}
 
