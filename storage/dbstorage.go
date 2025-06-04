@@ -70,7 +70,7 @@ func (s *dbStorageData) UpdateCounter(name string, value int64) {
 	withDBRetry(func() error {
 		_, err := s.db.Exec(`
 			INSERT INTO counters (id, delta) VALUES ($1, $2)
-			ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
+			ON CONFLICT (id) DO UPDATE SET delta = counters.delta;
 		`, name, value)
 		return err
 	}, "UpdateCounter")
