@@ -184,7 +184,7 @@ func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
 			if m.Delta == nil {
 				continue
 			}
-			s.Counter[m.ID] = +*m.Delta
+			s.Counter[m.ID] += *m.Delta
 		default:
 			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
 		}
