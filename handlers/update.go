@@ -17,12 +17,14 @@ import (
 )
 
 type MetricsRepo interface {
+	Ping() error
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetGauge(name string) (float64, bool)
 	GetCounter(name string) (int64, bool)
 	GetKeyGauge() []string
 	GetKeyCounter() []string
+	BatchUpdate(metrics []models.Metrics) error
 }
 
 type Handler struct {
@@ -138,6 +140,17 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(resp); err != nil {
 		logger.Log.Error("GetMetricJson", zap.Error(err))
 	}
+}
+
+func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
+	if err := h.Repo.Ping(); err != nil {
+		logger.Log.Error("GetPing", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
@@ -323,4 +336,47 @@ func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) er
 	default:
 		return fmt.Errorf("unknown metric type: %s", metricType)
 	}
+}
+
+func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metrics []models.Metrics
+	var buf bytes.Buffer
+
+	//читаем тело запроса
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//десериализуем JSON в Visitor
+	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if len(metrics) == 0 {
+		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	//Обновляем данные
+	err = h.Repo.BatchUpdate(metrics)
+	if err != nil {
+		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	//Отвечаем на запрос
+	w.WriteHeader(http.StatusOK)
 }

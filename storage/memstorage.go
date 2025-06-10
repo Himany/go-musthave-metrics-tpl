@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 	"go.uber.org/zap"
 )
 
-type Storage interface {
+type MemStorage interface {
+	Ping() error
 	UpdateGauge(name string, value float64)
 	UpdateCounter(name string, value int64)
 	GetGauge(name string) (float64, bool)
@@ -20,9 +23,10 @@ type Storage interface {
 	SaveData() error
 	LoadData() error
 	SaveHandler(int)
+	BatchUpdate(metrics []models.Metrics) error
 }
 
-type MemStorage struct {
+type MemStorageData struct {
 	Gauge   map[string]float64
 	Counter map[string]int64
 
@@ -30,8 +34,8 @@ type MemStorage struct {
 	isSyncSave bool
 }
 
-func NewMemStorage(path string, isSyncSave bool) *MemStorage {
-	return &MemStorage{
+func NewMemStorage(path string, isSyncSave bool) *MemStorageData {
+	return &MemStorageData{
 		Gauge:   make(map[string]float64),
 		Counter: make(map[string]int64),
 
@@ -40,30 +44,34 @@ func NewMemStorage(path string, isSyncSave bool) *MemStorage {
 	}
 }
 
-func (s *MemStorage) UpdateGauge(name string, value float64) {
+func (s *MemStorageData) Ping() error {
+	return nil
+}
+
+func (s *MemStorageData) UpdateGauge(name string, value float64) {
 	s.Gauge[name] = value
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
-			logger.Log.Error("UpdateGauge", zap.Error(err))
+			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
 		}
 	}
 }
 
-func (s *MemStorage) UpdateCounter(name string, value int64) {
+func (s *MemStorageData) UpdateCounter(name string, value int64) {
 	s.Counter[name] = value
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
-			logger.Log.Error("UpdateGauge", zap.Error(err))
+			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
 		}
 	}
 }
 
-func (s *MemStorage) GetGauge(name string) (float64, bool) {
+func (s *MemStorageData) GetGauge(name string) (float64, bool) {
 	val, ok := s.Gauge[name]
 	return val, ok
 }
 
-func (s *MemStorage) GetKeyGauge() []string {
+func (s *MemStorageData) GetKeyGauge() []string {
 	keys := make([]string, 0, len(s.Gauge))
 	for key := range s.Gauge {
 		keys = append(keys, key)
@@ -71,12 +79,12 @@ func (s *MemStorage) GetKeyGauge() []string {
 	return keys
 }
 
-func (s *MemStorage) GetCounter(name string) (int64, bool) {
+func (s *MemStorageData) GetCounter(name string) (int64, bool) {
 	val, ok := s.Counter[name]
 	return val, ok
 }
 
-func (s *MemStorage) GetKeyCounter() []string {
+func (s *MemStorageData) GetKeyCounter() []string {
 	keys := make([]string, 0, len(s.Counter))
 	for key := range s.Counter {
 		keys = append(keys, key)
@@ -90,71 +98,135 @@ type saveFormat struct {
 	Counter map[string]int64   `json:"counter"`
 }
 
-func (s *MemStorage) SaveData() error {
+func (s *MemStorageData) SaveData() error {
 	if s.fileToSave == "" {
-		return errors.New("file is not specified")
+		return errors.New("MEM file is not specified")
 	}
 
-	// создаем файл
-	file, err := os.OpenFile(s.fileToSave, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+	return withFileRetry(func() error {
+		// создаем файл
+		file, err := os.OpenFile(s.fileToSave, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
 
-	// сериализуем структуру в JSON формат
-	data, err := json.Marshal(saveFormat{
-		Gauge:   s.Gauge,
-		Counter: s.Counter,
-	})
-	if err != nil {
-		return err
-	}
+		// сериализуем структуру в JSON формат
+		data, err := json.Marshal(saveFormat{
+			Gauge:   s.Gauge,
+			Counter: s.Counter,
+		})
+		if err != nil {
+			return err
+		}
 
-	// сохраняем данные в файл
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
+		// сохраняем данные в файл
+		_, err = file.Write(data)
+		if err != nil {
+			return err
+		}
 
-	logger.Log.Info("metrics saved successfully", zap.String("path", s.fileToSave))
+		logger.Log.Info("MEM metrics saved successfully", zap.String("path", s.fileToSave))
 
-	return nil
-}
-
-func (s *MemStorage) LoadData() error {
-	if s.fileToSave == "" {
-		return errors.New("file is not specified")
-	}
-
-	var save saveFormat
-
-	data, err := os.ReadFile(s.fileToSave)
-	if os.IsNotExist(err) {
-		logger.Log.Warn("metrics file not found, skipping restore", zap.String("path", s.fileToSave))
 		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(data, &save); err != nil {
-		return err
-	}
-
-	s.Gauge = save.Gauge
-	s.Counter = save.Counter
-
-	logger.Log.Info("metrics loaded successfully", zap.String("path", s.fileToSave))
-	return nil
+	}, "SaveData")
 }
 
-func (s *MemStorage) SaveHandler(interval int) {
+func (s *MemStorageData) LoadData() error {
+	if s.fileToSave == "" {
+		return errors.New("MEM file is not specified")
+	}
+
+	return withFileRetry(func() error {
+		var save saveFormat
+
+		data, err := os.ReadFile(s.fileToSave)
+		if os.IsNotExist(err) {
+			logger.Log.Warn("MEM metrics file not found, skipping restore", zap.String("path", s.fileToSave))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := json.Unmarshal(data, &save); err != nil {
+			return err
+		}
+
+		s.Gauge = save.Gauge
+		s.Counter = save.Counter
+
+		logger.Log.Info("MEM metrics loaded successfully", zap.String("path", s.fileToSave))
+		return nil
+	}, "LoadData")
+}
+
+func (s *MemStorageData) SaveHandler(interval int) {
 	for {
 		if err := s.SaveData(); err != nil {
-			logger.Log.Error("SaveHandler", zap.Error(err))
+			logger.Log.Error("MEM SaveHandler", zap.Error(err))
 		}
 
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
+}
+
+func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
+	for _, m := range metrics {
+		switch m.MType {
+		case "gauge":
+			if m.Value == nil {
+				continue
+			}
+			s.Gauge[m.ID] = *m.Value
+
+		case "counter":
+			if m.Delta == nil {
+				continue
+			}
+			s.Counter[m.ID] += *m.Delta
+		default:
+			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
+		}
+	}
+
+	return nil
+}
+
+func withFileRetry(operation func() error, inType string) error {
+	retryDelays := []int{0, 1, 3, 5}
+	var lastErr error
+
+	for attempt := 0; attempt < len(retryDelays); attempt++ {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if !isRetriableFileError(err) {
+			return err
+		}
+
+		logger.Log.Warn("Retriable File",
+			zap.String("operation", inType),
+			zap.Int("attempt", attempt+1),
+			zap.Error(err),
+		)
+
+		if retryDelays[attempt] != 0 {
+			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
+		}
+	}
+
+	logger.Log.Error("File operation failed",
+		zap.String("operation", inType),
+		zap.Error(lastErr),
+	)
+
+	return lastErr
+}
+
+func isRetriableFileError(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "temporarily unavailable") || strings.Contains(err.Error(), "resource busy") || strings.Contains(err.Error(), "locked"))
 }
