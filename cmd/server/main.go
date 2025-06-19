@@ -41,7 +41,7 @@ func main() {
 	} else {
 		withSync := cfg.StoreInterval == 0 && cfg.FileStoragePath != ""
 		memStorage := storage.NewMemStorage(cfg.FileStoragePath, withSync)
-		if withSync {
+		if cfg.FileStoragePath != "" {
 			defer func() {
 				if err := memStorage.SaveData(); err != nil {
 					logger.Log.Error("failed to save data on shutdown", zap.Error(err))
