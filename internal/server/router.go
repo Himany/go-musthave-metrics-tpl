@@ -3,14 +3,13 @@ package server
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
-	"github.com/Himany/go-musthave-metrics-tpl/handlers"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/middleware"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/server/handlers"
+	"github.com/go-chi/chi/v5"
 )
 
-func Run(handler *handlers.Handler, flagRunAddr string) error {
+func Router(handler *handlers.Handler, flagRunAddr string) error {
 	r := chi.NewRouter()
 
 	r.Get("/", middleware.CheckPlainTextContentType(handler.GetAllMetrics))

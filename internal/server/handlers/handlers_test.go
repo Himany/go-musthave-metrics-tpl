@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/middleware"
-	"github.com/Himany/go-musthave-metrics-tpl/storage"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/storage"
 )
 
 func TestUpdate(t *testing.T) {
