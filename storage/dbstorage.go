@@ -13,38 +13,29 @@ import (
 	"go.uber.org/zap"
 )
 
-type DBStorage interface {
-	Ping() error
-	UpdateGauge(name string, value float64)
-	UpdateCounter(name string, value int64)
-	GetGauge(name string) (float64, bool)
-	GetCounter(name string) (int64, bool)
-	GetKeyGauge() []string
-	GetKeyCounter() []string
-	BatchUpdate(metrics []models.Metrics) error
-}
-
 type dbStorageData struct {
 	db *sql.DB
 }
 
-func NewPostgresStorage(db *sql.DB) (*dbStorageData, error) {
-	const gaugeSchema = `
+const (
+	createGaugeTable = `
 	CREATE TABLE IF NOT EXISTS gauges (
 		id TEXT PRIMARY KEY,
 		value DOUBLE PRECISION NOT NULL
 	);`
 
-	const counterSchema = `
+	createCounterTable = `
 	CREATE TABLE IF NOT EXISTS counters (
 		id TEXT PRIMARY KEY,
 		delta BIGINT NOT NULL
 	);`
+)
 
-	if _, err := db.Exec(gaugeSchema); err != nil {
+func NewPostgresStorage(db *sql.DB) (*dbStorageData, error) {
+	if _, err := db.Exec(createGaugeTable); err != nil {
 		return nil, fmt.Errorf("failed to create gauges table: %w", err)
 	}
-	if _, err := db.Exec(counterSchema); err != nil {
+	if _, err := db.Exec(createCounterTable); err != nil {
 		return nil, fmt.Errorf("failed to create counters table: %w", err)
 	}
 
@@ -100,11 +91,11 @@ func (s *dbStorageData) GetCounter(name string) (int64, bool) {
 	return delta, true
 }
 
-func (s *dbStorageData) GetKeyGauge() []string {
+func (s *dbStorageData) GetKeyGauge() ([]string, error) {
 	rows, err := s.db.Query(`SELECT id FROM gauges`)
 	if err != nil {
 		logger.Log.Error("DB GetKeyGauge query failed", zap.Error(err))
-		return nil
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -115,7 +106,7 @@ func (s *dbStorageData) GetKeyGauge() []string {
 
 		if err != nil {
 			logger.Log.Error("DB GetKeyGauge scan error", zap.Error(err))
-			return nil
+			return nil, err
 		}
 
 		keys = append(keys, id)
@@ -124,17 +115,17 @@ func (s *dbStorageData) GetKeyGauge() []string {
 	err = rows.Err()
 	if err != nil {
 		logger.Log.Error("DB GetKeyGauge rows error", zap.Error(err))
-		return nil
+		return nil, err
 	}
 
-	return keys
+	return keys, nil
 }
 
-func (s *dbStorageData) GetKeyCounter() []string {
+func (s *dbStorageData) GetKeyCounter() ([]string, error) {
 	rows, err := s.db.Query(`SELECT id FROM counters`)
 	if err != nil {
 		logger.Log.Error("DB GetKeyCounter query failed", zap.Error(err))
-		return nil
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -145,7 +136,7 @@ func (s *dbStorageData) GetKeyCounter() []string {
 
 		if err != nil {
 			logger.Log.Error("DB GetKeyCounter scan error", zap.Error(err))
-			return nil
+			return nil, err
 		}
 
 		keys = append(keys, id)
@@ -154,10 +145,10 @@ func (s *dbStorageData) GetKeyCounter() []string {
 	err = rows.Err()
 	if err != nil {
 		logger.Log.Error("DB GetKeyCounter rows error", zap.Error(err))
-		return nil
+		return nil, err
 	}
 
-	return keys
+	return keys, nil
 }
 
 func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {

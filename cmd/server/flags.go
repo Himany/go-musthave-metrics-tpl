@@ -7,20 +7,24 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-var runAddr, logLevel, fileStoragePath, dataBaseDSN string
-var storeInterval int
-var restore bool
-
 var envSet = map[string]bool{}
 
-func parseFlags() error {
-	var flagRunAddr = flag.String("a", "localhost:8080", "address and port to run server")
-	var flagLogLevel = flag.String("l", "info", "log level")
-	var flagStoreInterval = flag.Int("i", 300, "time interval in seconds after which the current server readings are saved to disk")
-	var flagFileStoragePath = flag.String("f", "metrics_data", "the path to the file where the current values are saved")
-	var flagRestore = flag.Bool("r", false, "whether or not to download previously saved values from the specified file at server startup")
+func parseFlags() (*config.Config, error) {
+	//Стандратные значения
+	const defaultRunAddr = "localhost:8080"
+	const defaultLogLevel = "info"
+	const defaultStoreInterval = 300
+	const defaultFileStoragePath = "metrics_data"
+	const defaultRestore = false
+	const defaultDataBaseDSN = ""
+
+	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
+	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
+	var flagStoreInterval = flag.Int("i", defaultStoreInterval, "time interval in seconds after which the current server readings are saved to disk")
+	var flagFileStoragePath = flag.String("f", defaultFileStoragePath, "the path to the file where the current values are saved")
+	var flagRestore = flag.Bool("r", defaultRestore, "whether or not to download previously saved values from the specified file at server startup")
 	//host=localhost user=postgres password=123321 dbname=metrics sslmode=disable
-	var flagDataBaseDSN = flag.String("d", "", "A string with settings for connecting the postgresql database")
+	var flagDataBaseDSN = flag.String("d", defaultDataBaseDSN, "A string with settings for connecting the postgresql database")
 
 	flag.Parse()
 
@@ -31,38 +35,32 @@ func parseFlags() error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	runAddr = *flagRunAddr
-	if (envSet["ADDRESS"]) && (cfg.Address != "") {
-		runAddr = cfg.Address
+	if !((envSet["ADDRESS"]) && (cfg.Address != "")) {
+		cfg.Address = *flagRunAddr
 	}
 
-	logLevel = *flagLogLevel
-	if (envSet["LOGLEVEL"]) && (cfg.LogLevel != "") {
-		logLevel = cfg.LogLevel
+	if !((envSet["LOGLEVEL"]) && (cfg.LogLevel != "")) {
+		cfg.LogLevel = *flagLogLevel
 	}
 
-	storeInterval = *flagStoreInterval
-	if envSet["STORE_INTERVAL"] {
-		storeInterval = cfg.StoreInterval
+	if !envSet["STORE_INTERVAL"] {
+		cfg.StoreInterval = *flagStoreInterval
 	}
 
-	fileStoragePath = *flagFileStoragePath
-	if envSet["FILE_STORAGE_PATH"] && (cfg.FileStoragePath != "") {
-		fileStoragePath = cfg.FileStoragePath
+	if !(envSet["FILE_STORAGE_PATH"] && (cfg.FileStoragePath != "")) {
+		cfg.FileStoragePath = *flagFileStoragePath
 	}
 
-	restore = *flagRestore
-	if envSet["RESTORE"] {
-		restore = cfg.Restore
+	if !envSet["RESTORE"] {
+		cfg.Restore = *flagRestore
 	}
 
-	dataBaseDSN = *flagDataBaseDSN
-	if (envSet["DATABASE_DSN"]) && (cfg.DataBaseDSN != "") {
-		dataBaseDSN = cfg.DataBaseDSN
+	if !((envSet["DATABASE_DSN"]) && (cfg.DataBaseDSN != "")) {
+		cfg.DataBaseDSN = *flagDataBaseDSN
 	}
 
-	return nil
+	return &cfg, nil
 }

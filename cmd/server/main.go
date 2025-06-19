@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"log"
 
 	"go.uber.org/zap"
 
@@ -14,57 +15,52 @@ import (
 )
 
 func main() {
-	if err := parseFlags(); err != nil {
-		panic("failed to initialize flags: " + err.Error())
+	cfg, err := parseFlags()
+	if err != nil {
+		log.Fatal("failed to initialize flags: " + err.Error())
 	}
 
-	if err := logger.Initialize(logLevel); err != nil {
-		panic("failed to initialize logger: " + err.Error())
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		log.Fatal("failed to initialize logger: " + err.Error())
 	}
 
-	logger.Log.Info("flags",
-		zap.String("runAddr", runAddr),
-		zap.String("fileStoragePath", fileStoragePath),
-		zap.Int("storeInterval", storeInterval),
-		zap.Bool("restore", restore),
-		zap.String("dataBaseDSN", dataBaseDSN),
-	)
+	logger.Log.Info("flags", zap.Object("config", cfg))
 
-	handler := &handlers.Handler{}
-	if dataBaseDSN != "" {
-		db, err := sql.Open("pgx", dataBaseDSN)
+	var repo handlers.MetricsRepo
+	if cfg.DataBaseDSN != "" {
+		db, err := sql.Open("pgx", cfg.DataBaseDSN)
 		if err != nil {
 			logger.Log.Error("failed to open database (postgres)", zap.Error(err))
 		} else {
-			repo, err := storage.NewPostgresStorage(db)
+			repo, err = storage.NewPostgresStorage(db)
 			if err != nil {
-				db.Close()
 				logger.Log.Fatal("failed to init database storage", zap.Error(err))
 			}
-			handler.Repo = repo
 			defer db.Close()
 		}
 	} else {
-		memStorage := storage.NewMemStorage(fileStoragePath, ((storeInterval == 0) && fileStoragePath != ""))
-		handler.Repo = memStorage
-		if restore && fileStoragePath != "" {
-			if err := memStorage.LoadData(); err != nil {
-				logger.Log.Fatal("failed to load data", zap.Error(err))
-			}
-		}
-		if fileStoragePath != "" {
+		withSync := cfg.StoreInterval == 0 && cfg.FileStoragePath != ""
+		memStorage := storage.NewMemStorage(cfg.FileStoragePath, withSync)
+		if withSync {
 			defer func() {
 				if err := memStorage.SaveData(); err != nil {
 					logger.Log.Error("failed to save data on shutdown", zap.Error(err))
 				}
 			}()
-			if storeInterval != 0 {
-				go memStorage.SaveHandler(storeInterval)
+			if cfg.Restore {
+				if err := memStorage.LoadData(); err != nil {
+					logger.Log.Fatal("failed to load data", zap.Error(err))
+				}
+			}
+			if cfg.StoreInterval != 0 {
+				go memStorage.SaveHandler(cfg.StoreInterval)
 			}
 		}
+		repo = memStorage
 	}
 
-	if err := server.Run(handler, runAddr); err != nil {
+	handler := &handlers.Handler{Repo: repo}
+	if err := server.Run(handler, cfg.Address); err != nil {
 		logger.Log.Fatal("main", zap.Error(err))
 	}
 }

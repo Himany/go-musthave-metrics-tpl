@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"log"
 	"math/rand/v2"
 	"runtime"
 	"sync"
@@ -100,7 +101,13 @@ func (a *agent) retryGzipJSONRequest(body []byte, route string) (*resty.Response
 			lastResp = resp
 		}
 
-		if resp != nil && !(resp.StatusCode() == 502 || resp.StatusCode() == 503 || resp.StatusCode() == 504 || resp.StatusCode() == 429) {
+		nonBreakingCodes := map[int]bool{
+			502: true,
+			503: true,
+			504: true,
+			429: true,
+		}
+		if _, nonBreaking := nonBreakingCodes[resp.StatusCode()]; resp != nil && !nonBreaking {
 			break
 		}
 
@@ -126,18 +133,14 @@ func (a *agent) createBatchRequest(metrics []models.Metrics) error {
 	resp, duration, err := a.retryGzipJSONRequest(body, route)
 
 	if err == nil && resp != nil {
-		logger.Log.Info("HTTP BATCH request",
-			zap.String("uri", a.URL+route),
-			zap.String("method", "POST"),
+		logger.Log.Info("HTTP BATCH",
+			zap.String("uri (request)", a.URL+route),
+			zap.String("method (request)", "POST"),
 			zap.Duration("duration", duration),
+			zap.Int("status (answer)", resp.StatusCode()),
+			zap.Int("size (answer)", len(resp.Body())),
+			zap.String("body (answer)", resp.String()),
 		)
-
-		logger.Log.Info("HTTP BATCH answer",
-			zap.Int("status", resp.StatusCode()),
-			zap.Int("size", len(resp.Body())),
-			zap.String("body", resp.String()),
-		)
-
 		return nil
 	}
 
@@ -224,23 +227,6 @@ func (a *agent) metricHandler() {
 
 func (a *agent) reportHandler() {
 	for {
-		/*
-			a.Mutex.Lock()
-			for key := range a.Metrics {
-				value := a.Metrics[key]
-				err := a.createRequest("gauge", key, nil, &value)
-				if err != nil {
-					logger.Log.Error("createRequest gauge", zap.Error(err))
-				}
-			}
-			a.Mutex.Unlock()
-
-			err := a.createRequest("counter", "PollCount", &a.PollCount, nil)
-			if err != nil {
-				logger.Log.Error("createRequest counter", zap.Error(err))
-			}
-		*/
-
 		a.Mutex.Lock()
 
 		var batch []models.Metrics
@@ -269,16 +255,16 @@ func (a *agent) reportHandler() {
 }
 
 func main() {
-	url, reportInterval, pollInterval, logLevel, err := parseConfig()
+	cfg, err := parseConfig()
 	if err != nil {
-		panic("failed to initialize flags: " + err.Error())
+		log.Fatal("failed to initialize flags: " + err.Error())
 	}
 
-	if err := logger.Initialize(logLevel); err != nil {
-		panic("failed to initialize logger: " + err.Error())
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		log.Fatal("failed to initialize logger: " + err.Error())
 	}
 
-	agent := createAgent(url, reportInterval, pollInterval)
+	agent := createAgent(cfg.Address, cfg.ReportInterval, cfg.PollInterval)
 
 	go agent.metricHandler()
 	go agent.reportHandler()

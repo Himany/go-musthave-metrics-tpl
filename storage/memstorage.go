@@ -12,20 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type MemStorage interface {
-	Ping() error
-	UpdateGauge(name string, value float64)
-	UpdateCounter(name string, value int64)
-	GetGauge(name string) (float64, bool)
-	GetCounter(name string) (int64, bool)
-	GetKeyGauge() []string
-	GetKeyCounter() []string
-	SaveData() error
-	LoadData() error
-	SaveHandler(int)
-	BatchUpdate(metrics []models.Metrics) error
-}
-
 type MemStorageData struct {
 	Gauge   map[string]float64
 	Counter map[string]int64
@@ -71,12 +57,12 @@ func (s *MemStorageData) GetGauge(name string) (float64, bool) {
 	return val, ok
 }
 
-func (s *MemStorageData) GetKeyGauge() []string {
+func (s *MemStorageData) GetKeyGauge() ([]string, error) {
 	keys := make([]string, 0, len(s.Gauge))
 	for key := range s.Gauge {
 		keys = append(keys, key)
 	}
-	return keys
+	return keys, nil
 }
 
 func (s *MemStorageData) GetCounter(name string) (int64, bool) {
@@ -84,12 +70,12 @@ func (s *MemStorageData) GetCounter(name string) (int64, bool) {
 	return val, ok
 }
 
-func (s *MemStorageData) GetKeyCounter() []string {
+func (s *MemStorageData) GetKeyCounter() ([]string, error) {
 	keys := make([]string, 0, len(s.Counter))
 	for key := range s.Counter {
 		keys = append(keys, key)
 	}
-	return keys
+	return keys, nil
 }
 
 // files

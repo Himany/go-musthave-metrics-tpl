@@ -22,8 +22,8 @@ type MetricsRepo interface {
 	UpdateCounter(name string, value int64)
 	GetGauge(name string) (float64, bool)
 	GetCounter(name string) (int64, bool)
-	GetKeyGauge() []string
-	GetKeyCounter() []string
+	GetKeyGauge() ([]string, error)
+	GetKeyCounter() ([]string, error)
 	BatchUpdate(metrics []models.Metrics) error
 }
 
@@ -155,13 +155,25 @@ func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	list := make([]string, 0)
-	for _, item := range h.Repo.GetKeyGauge() {
+	keysGauge, err := h.Repo.GetKeyGauge()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	keysCounter, err := h.Repo.GetKeyCounter()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	for _, item := range keysGauge {
 		value, ok := h.getStringValue("gauge", item)
 		if ok {
 			list = append(list, (item + ": " + value + ";"))
 		}
 	}
-	for _, item := range h.Repo.GetKeyCounter() {
+	for _, item := range keysCounter {
 		value, ok := h.getStringValue("counter", item)
 		if ok {
 			list = append(list, (item + ": " + value + ";"))
@@ -281,7 +293,7 @@ func validateUpdateJSON(metrics models.Metrics) error {
 		return errors.New("field 'id' is required")
 	}
 
-	if !((metrics.MType == "gauge") || (metrics.MType == "counter")) {
+	if !(metrics.MType == "gauge" || metrics.MType == "counter") {
 		return errors.New("field 'type' must have a value of 'gauge' or 'counter'")
 	}
 
@@ -304,7 +316,7 @@ func validateGetMetricJSON(metrics models.Metrics) error {
 		return errors.New("field 'id' is required")
 	}
 
-	if !((metrics.MType == "gauge") || (metrics.MType == "counter")) {
+	if !(metrics.MType == "gauge" || metrics.MType == "counter") {
 		return errors.New("field 'type' must have a value of 'gauge' or 'counter'")
 	}
 
