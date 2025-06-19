@@ -17,12 +17,12 @@ func Router(handler *handlers.Handler, flagRunAddr string) error {
 	r.Get("/ping", handler.GetPing)
 
 	r.Get("/value/{type}/{name}", middleware.CheckPlainTextContentType(handler.GetMetricQuery))
-	r.Post("/value/", handler.GetMetricJSON)
+	r.Post("/value/", middleware.CheckApplicationJSONContentType(handler.GetMetricJSON))
 
 	r.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
-	r.Post("/update/", handler.UpdateHandlerJSON)
+	r.Post("/update/", middleware.CheckApplicationJSONContentType(handler.UpdateHandlerJSON))
 
-	r.Post("/updates/", handler.BatchUpdateJSON)
+	r.Post("/updates/", middleware.CheckApplicationJSONContentType(handler.BatchUpdateJSON))
 
 	return http.ListenAndServe(flagRunAddr, logger.RequestLogger(middleware.Gzip(r)))
 }

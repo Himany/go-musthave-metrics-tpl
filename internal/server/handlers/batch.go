@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
@@ -12,12 +11,6 @@ import (
 )
 
 func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		return
-	}
-
 	var metrics []models.Metrics
 	var buf bytes.Buffer
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -67,12 +66,6 @@ func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) er
 }
 
 func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		return
-	}
-
 	var metrics models.Metrics
 	var buf bytes.Buffer
 

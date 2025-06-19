@@ -82,12 +82,6 @@ func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		w.WriteHeader(http.StatusUnsupportedMediaType)
-		return
-	}
-
 	var metrics models.Metrics
 	var buf bytes.Buffer
 
