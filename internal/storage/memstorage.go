@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
@@ -13,6 +14,7 @@ import (
 )
 
 type MemStorageData struct {
+	mu      sync.RWMutex
 	Gauge   map[string]float64
 	Counter map[string]int64
 
@@ -35,6 +37,8 @@ func (s *MemStorageData) Ping() error {
 }
 
 func (s *MemStorageData) UpdateGauge(name string, value float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.Gauge[name] = value
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
@@ -44,6 +48,8 @@ func (s *MemStorageData) UpdateGauge(name string, value float64) {
 }
 
 func (s *MemStorageData) UpdateCounter(name string, value int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.Counter[name] = value
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
@@ -53,11 +59,15 @@ func (s *MemStorageData) UpdateCounter(name string, value int64) {
 }
 
 func (s *MemStorageData) GetGauge(name string) (float64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	val, ok := s.Gauge[name]
 	return val, ok
 }
 
 func (s *MemStorageData) GetKeyGauge() ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	keys := make([]string, 0, len(s.Gauge))
 	for key := range s.Gauge {
 		keys = append(keys, key)
@@ -66,11 +76,15 @@ func (s *MemStorageData) GetKeyGauge() ([]string, error) {
 }
 
 func (s *MemStorageData) GetCounter(name string) (int64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	val, ok := s.Counter[name]
 	return val, ok
 }
 
 func (s *MemStorageData) GetKeyCounter() ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	keys := make([]string, 0, len(s.Counter))
 	for key := range s.Counter {
 		keys = append(keys, key)
@@ -98,6 +112,8 @@ func (s *MemStorageData) SaveData() error {
 		defer file.Close()
 
 		// сериализуем структуру в JSON формат
+		s.mu.RLock()
+		defer s.mu.RUnlock()
 		data, err := json.Marshal(saveFormat{
 			Gauge:   s.Gauge,
 			Counter: s.Counter,
@@ -139,6 +155,8 @@ func (s *MemStorageData) LoadData() error {
 			return err
 		}
 
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		s.Gauge = save.Gauge
 		s.Counter = save.Counter
 
@@ -158,6 +176,8 @@ func (s *MemStorageData) SaveHandler(interval int) {
 }
 
 func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, m := range metrics {
 		switch m.MType {
 		case "gauge":
@@ -175,7 +195,6 @@ func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
 			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
 		}
 	}
-
 	return nil
 }
 
