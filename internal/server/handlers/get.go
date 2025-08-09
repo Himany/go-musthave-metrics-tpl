@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -131,6 +132,11 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Error("GetMetricJson", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	hash := bodySignature(resp, h.Key)
+	if hash != nil {
+		w.Header().Set("HashSHA256", hex.EncodeToString(hash))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

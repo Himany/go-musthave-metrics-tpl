@@ -13,6 +13,8 @@ type Config struct {
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	Restore         bool   `env:"RESTORE"`
 	DataBaseDSN     string `env:"DATABASE_DSN"`
+
+	Key string `env:"KEY"`
 }
 
 func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -24,5 +26,6 @@ func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("fileStoragePath", c.FileStoragePath)
 	enc.AddBool("restore", c.Restore)
 	enc.AddString("dataBaseDSN", c.DataBaseDSN)
+	enc.AddString("key", c.Key)
 	return nil
 }

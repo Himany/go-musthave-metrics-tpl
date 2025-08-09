@@ -10,17 +10,18 @@ import (
 
 var envSet = map[string]bool{}
 
-func parseConfig() (*config.Config, error) {
-	//Стандратные значения
-	const defaultRunAddr = "localhost:8080"
-	const defaultReportSeconds = 10
-	const defaultPollSeconds = 2
-	const defaultLogLevel = "info"
+// Стандратные значения
+const defaultRunAddr = "localhost:8080"
+const defaultReportSeconds = 10
+const defaultPollSeconds = 2
+const defaultLogLevel = "info"
 
+func parseConfig() (*config.Config, error) {
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
 	var flagReportSeconds = flag.Int("r", defaultReportSeconds, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", defaultPollSeconds, "poll interval in seconds")
 	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
+	var flagKey = flag.String("k", "", "Key")
 
 	flag.Parse()
 
@@ -49,6 +50,10 @@ func parseConfig() (*config.Config, error) {
 
 	if cfg.LogLevel == "" {
 		cfg.LogLevel = *flagLogLevel
+	}
+
+	if cfg.Key == "" {
+		cfg.Key = *flagKey
 	}
 
 	return &cfg, nil

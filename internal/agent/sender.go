@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -10,18 +12,23 @@ import (
 	"go.uber.org/zap"
 )
 
-func (a *agent) retryGzipJSONRequest(body []byte, route string) (*resty.Response, time.Duration, error) {
+func (a *agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*resty.Response, time.Duration, error) {
 	retryDelays := []int{0, 1, 3, 5}
 	var lastErr error
 	var lastResp *resty.Response
 
 	start := time.Now()
 	for attempt := 0; attempt < len(retryDelays); attempt++ {
-		resp, err := a.Client.R().
+		request := a.Client.R().
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
-			SetBody(body).
-			Post(a.URL + route)
+			SetBody(body)
+
+		if hash != nil {
+			request.SetHeader("HashSHA256", hex.EncodeToString(hash))
+		}
+
+		resp, err := request.Post(a.URL + route)
 
 		if err == nil {
 			duration := time.Since(start)
@@ -55,13 +62,20 @@ func (a *agent) createBatchRequest(metrics []models.Metrics) error {
 		return errors.New("empty metrics")
 	}
 
-	body, err := compressBatchBody(metrics)
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return err
+	}
+
+	hash := bodySignature(jsonData, a.Key)
+
+	body, err := compressBody(jsonData)
 	if err != nil {
 		return err
 	}
 
 	var route = "/updates/"
-	resp, duration, err := a.retryGzipJSONRequest(body, route)
+	resp, duration, err := a.retryGzipJSONRequest(body, route, hash)
 
 	if err == nil && resp != nil {
 		logger.Log.Info("HTTP BATCH",
@@ -86,13 +100,20 @@ func (a *agent) createRequest(metricType string, name string, delta *int64, valu
 		Value: value,
 	}
 
-	body, err := compressBody(metrics)
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return err
+	}
+
+	hash := bodySignature(jsonData, a.Key)
+
+	body, err := compressBody(jsonData)
 	if err != nil {
 		return err
 	}
 
 	var route = "/update/"
-	resp, duration, err := a.retryGzipJSONRequest(body, route)
+	resp, duration, err := a.retryGzipJSONRequest(body, route, hash)
 
 	if err == nil && resp != nil {
 		logger.Log.Info("HTTP request",

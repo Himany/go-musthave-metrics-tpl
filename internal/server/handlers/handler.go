@@ -15,4 +15,5 @@ type MetricsRepo interface {
 
 type Handler struct {
 	Repo MetricsRepo
+	Key  string
 }

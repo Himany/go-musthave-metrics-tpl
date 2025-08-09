@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -123,6 +124,11 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	hash := bodySignature(resp, h.Key)
+	if hash != nil {
+		w.Header().Set("HashSHA256", hex.EncodeToString(hash))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -15,9 +15,10 @@ type agent struct {
 	PollCount      int64
 	Metrics        map[string]float64
 	Mutex          sync.Mutex
+	Key            string
 }
 
-func createAgent(url string, reportInterval int, pollInterval int) *agent {
+func createAgent(url string, reportInterval int, pollInterval int, key string) *agent {
 	return (&agent{
 		URL:            url,
 		ReportInterval: reportInterval,
@@ -25,11 +26,12 @@ func createAgent(url string, reportInterval int, pollInterval int) *agent {
 		Client:         resty.New(),
 		PollCount:      0,
 		Metrics:        make(map[string]float64),
+		Key:            key,
 	})
 }
 
 func Run(cfg *config.Config) error {
-	agent := createAgent(cfg.Address, cfg.ReportInterval, cfg.PollInterval)
+	agent := createAgent(cfg.Address, cfg.ReportInterval, cfg.PollInterval, cfg.Key)
 
 	go agent.collector()
 	go agent.reportHandler()

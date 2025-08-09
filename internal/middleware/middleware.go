@@ -1,6 +1,10 @@
 package middleware
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"net/http"
 	"strings"
 
@@ -67,4 +71,43 @@ func Gzip(h http.Handler) http.Handler {
 		// передаём управление хендлеру
 		h.ServeHTTP(ow, r)
 	})
+}
+
+func CheckHash(key string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if key == "" {
+			h(w, r)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		r.Body = io.NopCloser(strings.NewReader(string(body)))
+
+		receivedHash := r.Header.Get("HashSHA256")
+		if receivedHash == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		hasher := hmac.New(sha256.New, []byte(key))
+		hasher.Write(body)
+		expectedHash := hasher.Sum(nil)
+
+		receivedHashBytes, err := hex.DecodeString(receivedHash)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if !hmac.Equal(expectedHash, receivedHashBytes) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		h(w, r)
+	}
 }

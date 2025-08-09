@@ -44,8 +44,8 @@ func Run(cfg *config.Config) error {
 		repo = memStorage
 	}
 
-	handler := &handlers.Handler{Repo: repo}
-	if err := Router(handler, cfg.Address); err != nil {
+	handler := &handlers.Handler{Repo: repo, Key: cfg.Key}
+	if err := Router(handler, cfg.Address, cfg.Key); err != nil {
 		return err
 	}
 

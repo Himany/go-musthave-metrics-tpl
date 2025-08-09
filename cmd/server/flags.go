@@ -9,15 +9,15 @@ import (
 
 var envSet = map[string]bool{}
 
-func parseFlags() (*config.Config, error) {
-	//Стандратные значения
-	const defaultRunAddr = "localhost:8080"
-	const defaultLogLevel = "info"
-	const defaultStoreInterval = 300
-	const defaultFileStoragePath = "metrics_data"
-	const defaultRestore = false
-	const defaultDataBaseDSN = ""
+// Стандратные значения
+const defaultRunAddr = "localhost:8080"
+const defaultLogLevel = "info"
+const defaultStoreInterval = 300
+const defaultFileStoragePath = "metrics_data"
+const defaultRestore = false
+const defaultDataBaseDSN = ""
 
+func parseFlags() (*config.Config, error) {
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
 	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagStoreInterval = flag.Int("i", defaultStoreInterval, "time interval in seconds after which the current server readings are saved to disk")
@@ -25,6 +25,7 @@ func parseFlags() (*config.Config, error) {
 	var flagRestore = flag.Bool("r", defaultRestore, "whether or not to download previously saved values from the specified file at server startup")
 	//host=localhost user=postgres password=123321 dbname=metrics sslmode=disable
 	var flagDataBaseDSN = flag.String("d", defaultDataBaseDSN, "A string with settings for connecting the postgresql database")
+	var flagKey = flag.String("k", "", "key")
 
 	flag.Parse()
 
@@ -60,6 +61,10 @@ func parseFlags() (*config.Config, error) {
 
 	if !((envSet["DATABASE_DSN"]) && (cfg.DataBaseDSN != "")) {
 		cfg.DataBaseDSN = *flagDataBaseDSN
+	}
+
+	if !((envSet["KEY"]) && (cfg.Key != "")) {
+		cfg.Key = *flagKey
 	}
 
 	return &cfg, nil

@@ -1,6 +1,10 @@
 package handlers
 
-import "strconv"
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"strconv"
+)
 
 func (h *Handler) getStringValue(metricType string, metricName string) (string, bool) {
 	result := ""
@@ -24,4 +28,14 @@ func (h *Handler) getStringValue(metricType string, metricName string) (string, 
 	default:
 		return "", false
 	}
+}
+
+func bodySignature(jsonData []byte, key string) []byte {
+	if key == "" {
+		return nil
+	}
+
+	hasher := hmac.New(sha256.New, []byte(key))
+	hasher.Write(jsonData)
+	return hasher.Sum(nil)
 }

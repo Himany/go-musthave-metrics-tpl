@@ -3,37 +3,21 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
-
-	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"crypto/hmac"
+	"crypto/sha256"
 )
 
-func compressBody(v models.Metrics) ([]byte, error) {
-	jsonData, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
+func bodySignature(jsonData []byte, key string) []byte {
+	if key == "" {
+		return nil
 	}
 
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-
-	if _, err := gz.Write(jsonData); err != nil {
-		return nil, err
-	}
-
-	if err := gz.Close(); err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	hasher := hmac.New(sha256.New, []byte(key))
+	hasher.Write(jsonData)
+	return hasher.Sum(nil)
 }
 
-func compressBatchBody(v []models.Metrics) ([]byte, error) {
-	jsonData, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-
+func compressBody(jsonData []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 

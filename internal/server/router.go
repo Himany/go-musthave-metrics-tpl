@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func Router(handler *handlers.Handler, flagRunAddr string) error {
+func Router(handler *handlers.Handler, runAddr string, key string) error {
 	r := chi.NewRouter()
 
 	r.Get("/", middleware.CheckPlainTextContentType(handler.GetAllMetrics))
@@ -24,5 +24,5 @@ func Router(handler *handlers.Handler, flagRunAddr string) error {
 
 	r.Post("/updates/", middleware.CheckApplicationJSONContentType(handler.BatchUpdateJSON))
 
-	return http.ListenAndServe(flagRunAddr, logger.RequestLogger(middleware.Gzip(r)))
+	return http.ListenAndServe(runAddr, logger.RequestLogger(middleware.CheckHash(key, middleware.Gzip(r).ServeHTTP)))
 }
