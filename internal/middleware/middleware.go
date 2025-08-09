@@ -89,8 +89,8 @@ func CheckHash(key string, h http.HandlerFunc) http.HandlerFunc {
 		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		receivedHash := r.Header.Get("HashSHA256")
-		if receivedHash == "" {
-			w.WriteHeader(http.StatusBadRequest)
+		if receivedHash == "" || receivedHash == "none" {
+			h(w, r)
 			return
 		}
 
