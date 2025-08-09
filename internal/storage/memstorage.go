@@ -38,8 +38,8 @@ func (s *MemStorageData) Ping() error {
 
 func (s *MemStorageData) UpdateGauge(name string, value float64) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.Gauge[name] = value
+	s.mu.Unlock()
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
 			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
@@ -49,8 +49,8 @@ func (s *MemStorageData) UpdateGauge(name string, value float64) {
 
 func (s *MemStorageData) UpdateCounter(name string, value int64) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.Counter[name] = value
+	s.mu.Unlock()
 	if s.isSyncSave {
 		if err := s.SaveData(); err != nil {
 			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
