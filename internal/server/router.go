@@ -20,9 +20,9 @@ func Router(handler *handlers.Handler, runAddr string, key string) error {
 	r.Post("/value/", middleware.CheckApplicationJSONContentType(handler.GetMetricJSON))
 
 	r.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
-	r.Post("/update/", middleware.CheckApplicationJSONContentType(handler.UpdateHandlerJSON))
+	r.Post("/update/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.UpdateHandlerJSON)))
 
-	r.Post("/updates/", middleware.CheckApplicationJSONContentType(handler.BatchUpdateJSON))
+	r.Post("/updates/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.BatchUpdateJSON)))
 
-	return http.ListenAndServe(runAddr, logger.RequestLogger(middleware.CheckHash(key, middleware.Gzip(r).ServeHTTP)))
+	return http.ListenAndServe(runAddr, logger.RequestLogger(middleware.Gzip(r)))
 }

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -85,7 +86,7 @@ func CheckHash(key string, h http.HandlerFunc) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		r.Body = io.NopCloser(strings.NewReader(string(body)))
+		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		receivedHash := r.Header.Get("HashSHA256")
 		if receivedHash == "" {
