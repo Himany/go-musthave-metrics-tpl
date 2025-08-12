@@ -154,10 +154,8 @@ func (a *agent) reportHandler() {
 		})
 
 		a.Mutex.Unlock()
-		err := a.createBatchRequest(batch)
-		if err != nil {
-			logger.Log.Error("createBatchRequest", zap.Error(err))
-		}
+
+		a.Tasks <- batch
 
 		time.Sleep(time.Duration(a.ReportInterval) * time.Second)
 	}

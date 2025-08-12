@@ -15,6 +15,7 @@ const defaultRunAddr = "localhost:8080"
 const defaultReportSeconds = 10
 const defaultPollSeconds = 2
 const defaultLogLevel = "info"
+const defaultRateLimit = 0
 
 func parseConfig() (*config.Config, error) {
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
@@ -22,6 +23,7 @@ func parseConfig() (*config.Config, error) {
 	var flagPollSeconds = flag.Int("p", defaultPollSeconds, "poll interval in seconds")
 	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagKey = flag.String("k", "", "Key")
+	var flagRateLimit = flag.Int("l", defaultRateLimit, "maximum number of simultaneous requests to the server")
 
 	flag.Parse()
 
@@ -54,6 +56,10 @@ func parseConfig() (*config.Config, error) {
 
 	if cfg.Key == "" {
 		cfg.Key = *flagKey
+	}
+
+	if !envSet["RATE_LIMIT"] {
+		cfg.RateLimit = *flagRateLimit
 	}
 
 	return &cfg, nil
