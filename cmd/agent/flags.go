@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/utils"
 	"github.com/caarlos0/env/v11"
 )
 
@@ -37,30 +38,13 @@ func parseConfig() (*config.Config, error) {
 		return nil, fmt.Errorf("error parsing env: %w", err)
 	}
 
-	if cfg.Address == "" {
-		cfg.Address = *flagRunAddr
-	}
+	utils.SetStringIfUnset(envSet, "ADDRESS", &cfg.Address, *flagRunAddr)
 	cfg.Address = "http://" + cfg.Address
-
-	if !envSet["REPORT_INTERVAL"] {
-		cfg.ReportInterval = *flagReportSeconds
-	}
-
-	if envSet["POLL_INTERVAL"] {
-		cfg.PollInterval = *flagPollSeconds
-	}
-
-	if cfg.LogLevel == "" {
-		cfg.LogLevel = defaultLogLevel
-	}
-
-	if cfg.Key == "" {
-		cfg.Key = *flagKey
-	}
-
-	if !envSet["RATE_LIMIT"] {
-		cfg.RateLimit = *flagRateLimit
-	}
+	utils.SetIntIfUnset(envSet, "REPORT_INTERVAL", &cfg.ReportInterval, *flagReportSeconds)
+	utils.SetIntIfUnset(envSet, "POLL_INTERVAL", &cfg.PollInterval, *flagPollSeconds)
+	utils.SetStringIfUnset(envSet, "LOG_LEVEL", &cfg.LogLevel, defaultLogLevel)
+	utils.SetStringIfUnset(envSet, "KEY", &cfg.Key, *flagKey)
+	utils.SetIntIfUnset(envSet, "RATE_LIMIT", &cfg.RateLimit, *flagRateLimit)
 
 	return &cfg, nil
 }

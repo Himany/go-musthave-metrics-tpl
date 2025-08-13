@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/utils"
 	"github.com/caarlos0/env/v11"
 )
 
@@ -39,33 +40,13 @@ func parseFlags() (*config.Config, error) {
 		return nil, err
 	}
 
-	if !((envSet["ADDRESS"]) && (cfg.Address != "")) {
-		cfg.Address = *flagRunAddr
-	}
-
-	if !((envSet["LOGLEVEL"]) && (cfg.LogLevel != "")) {
-		cfg.LogLevel = *flagLogLevel
-	}
-
-	if !envSet["STORE_INTERVAL"] {
-		cfg.StoreInterval = *flagStoreInterval
-	}
-
-	if !(envSet["FILE_STORAGE_PATH"] && (cfg.FileStoragePath != "")) {
-		cfg.FileStoragePath = *flagFileStoragePath
-	}
-
-	if !envSet["RESTORE"] {
-		cfg.Restore = *flagRestore
-	}
-
-	if !((envSet["DATABASE_DSN"]) && (cfg.DataBaseDSN != "")) {
-		cfg.DataBaseDSN = *flagDataBaseDSN
-	}
-
-	if !((envSet["KEY"]) && (cfg.Key != "")) {
-		cfg.Key = *flagKey
-	}
+	utils.SetStringIfUnset(envSet, "ADDRESS", &cfg.Address, *flagRunAddr)
+	utils.SetStringIfUnset(envSet, "LOGLEVEL", &cfg.LogLevel, *flagLogLevel)
+	utils.SetIntIfUnset(envSet, "STORE_INTERVAL", &cfg.StoreInterval, *flagStoreInterval)
+	utils.SetStringIfUnset(envSet, "FILE_STORAGE_PATH", &cfg.FileStoragePath, *flagFileStoragePath)
+	utils.SetBoolIfUnset(envSet, "RESTORE", &cfg.Restore, *flagRestore)
+	utils.SetStringIfUnset(envSet, "DATABASE_DSN", &cfg.DataBaseDSN, *flagDataBaseDSN)
+	utils.SetStringIfUnset(envSet, "KEY", &cfg.Key, *flagKey)
 
 	return &cfg, nil
 }
