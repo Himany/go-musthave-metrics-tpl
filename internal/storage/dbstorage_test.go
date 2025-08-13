@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/retry"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +47,7 @@ func TestDBStorage_WithDBRetry(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			attempts := 0
 
-			err := withDBRetry(func() error {
+			err := retry.WithRetry(func() error {
 				attempts++
 				if attempts <= tc.failCount {
 					if tc.retriable {
@@ -55,7 +56,7 @@ func TestDBStorage_WithDBRetry(t *testing.T) {
 					return errors.New("non-retriable error")
 				}
 				return nil
-			}, tc.name)
+			}, isRetriableDBError, tc.name)
 
 			assert.Equal(t, tc.expectAttempts, attempts, "не совпадает количество попыток")
 			if tc.expectError {

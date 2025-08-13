@@ -10,6 +10,7 @@ import (
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/retry"
 	"go.uber.org/zap"
 )
 
@@ -103,7 +104,7 @@ func (s *MemStorageData) SaveData() error {
 		return errors.New("MEM file is not specified")
 	}
 
-	return withFileRetry(func() error {
+	return retry.WithRetry(func() error {
 		// создаем файл
 		file, err := os.OpenFile(s.fileToSave, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 		if err != nil {
@@ -131,7 +132,7 @@ func (s *MemStorageData) SaveData() error {
 		logger.Log.Info("MEM metrics saved successfully", zap.String("path", s.fileToSave))
 
 		return nil
-	}, "SaveData")
+	}, isRetriableFileError, "SaveData")
 }
 
 func (s *MemStorageData) LoadData() error {
@@ -139,7 +140,7 @@ func (s *MemStorageData) LoadData() error {
 		return errors.New("MEM file is not specified")
 	}
 
-	return withFileRetry(func() error {
+	return retry.WithRetry(func() error {
 		var save saveFormat
 
 		data, err := os.ReadFile(s.fileToSave)
@@ -162,7 +163,7 @@ func (s *MemStorageData) LoadData() error {
 
 		logger.Log.Info("MEM metrics loaded successfully", zap.String("path", s.fileToSave))
 		return nil
-	}, "LoadData")
+	}, isRetriableFileError, "LoadData")
 }
 
 func (s *MemStorageData) SaveHandler(interval int) {
@@ -196,40 +197,6 @@ func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
 		}
 	}
 	return nil
-}
-
-func withFileRetry(operation func() error, inType string) error {
-	retryDelays := []int{0, 1, 3, 5}
-	var lastErr error
-
-	for attempt := 0; attempt < len(retryDelays); attempt++ {
-		err := operation()
-		if err == nil {
-			return nil
-		}
-
-		lastErr = err
-		if !isRetriableFileError(err) {
-			return err
-		}
-
-		logger.Log.Warn("Retriable File",
-			zap.String("operation", inType),
-			zap.Int("attempt", attempt+1),
-			zap.Error(err),
-		)
-
-		if retryDelays[attempt] != 0 {
-			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
-		}
-	}
-
-	logger.Log.Error("File operation failed",
-		zap.String("operation", inType),
-		zap.Error(lastErr),
-	)
-
-	return lastErr
 }
 
 func isRetriableFileError(err error) bool {

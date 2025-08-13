@@ -21,7 +21,7 @@ func parseConfig() (*config.Config, error) {
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
 	var flagReportSeconds = flag.Int("r", defaultReportSeconds, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", defaultPollSeconds, "poll interval in seconds")
-	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
+	//var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagKey = flag.String("k", "", "Key")
 	var flagRateLimit = flag.Int("l", defaultRateLimit, "maximum number of simultaneous requests to the server")
 
@@ -51,7 +51,7 @@ func parseConfig() (*config.Config, error) {
 	}
 
 	if cfg.LogLevel == "" {
-		cfg.LogLevel = *flagLogLevel
+		cfg.LogLevel = defaultLogLevel
 	}
 
 	if cfg.Key == "" {

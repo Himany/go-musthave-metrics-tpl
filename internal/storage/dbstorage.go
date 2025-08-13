@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/retry"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
@@ -48,23 +48,23 @@ func (s *dbStorageData) Ping() error {
 }
 
 func (s *dbStorageData) UpdateGauge(name string, value float64) {
-	withDBRetry(func() error {
+	retry.WithRetry(func() error {
 		_, err := s.db.Exec(`
 			INSERT INTO gauges (id, value) VALUES ($1, $2)
 			ON CONFLICT (id) DO UPDATE SET value = $2;
 		`, name, value)
 		return err
-	}, "UpdateGauge")
+	}, isRetriableDBError, "UpdateGauge")
 }
 
 func (s *dbStorageData) UpdateCounter(name string, value int64) {
-	withDBRetry(func() error {
+	retry.WithRetry(func() error {
 		_, err := s.db.Exec(`
 			INSERT INTO counters (id, delta) VALUES ($1, $2)
 			ON CONFLICT (id) DO UPDATE SET delta = $2;
 		`, name, value)
 		return err
-	}, "UpdateCounter")
+	}, isRetriableDBError, "UpdateCounter")
 }
 
 func (s *dbStorageData) GetGauge(name string) (float64, bool) {
@@ -152,7 +152,7 @@ func (s *dbStorageData) GetKeyCounter() ([]string, error) {
 }
 
 func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
-	return withDBRetry(func() error {
+	return retry.WithRetry(func() error {
 		tx, err := s.db.Begin()
 		if err != nil {
 			return err
@@ -195,41 +195,7 @@ func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
 		}
 
 		return nil
-	}, "BatchUpdate")
-}
-
-func withDBRetry(operation func() error, inType string) error {
-	retryDelays := []int{0, 1, 3, 5}
-	var lastErr error
-
-	for attempt := 0; attempt < len(retryDelays); attempt++ {
-		err := operation()
-		if err == nil {
-			return nil
-		}
-
-		lastErr = err
-		if !isRetriableDBError(err) {
-			return err
-		}
-
-		logger.Log.Warn("Retriable DB",
-			zap.String("operation", inType),
-			zap.Int("attempt", attempt+1),
-			zap.Error(err),
-		)
-
-		if retryDelays[attempt] != 0 {
-			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
-		}
-	}
-
-	logger.Log.Error("DB operation failed",
-		zap.String("operation", inType),
-		zap.Error(lastErr),
-	)
-
-	return lastErr
+	}, isRetriableDBError, "BatchUpdate")
 }
 
 func isRetriableDBError(err error) bool {
