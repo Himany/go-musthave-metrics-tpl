@@ -17,6 +17,8 @@ const defaultStoreInterval = 300
 const defaultFileStoragePath = "metrics_data"
 const defaultRestore = false
 const defaultDataBaseDSN = ""
+const defaultAuditFile = ""
+const defaultAuditURL = ""
 
 func parseFlags() (*config.Config, error) {
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
@@ -27,6 +29,8 @@ func parseFlags() (*config.Config, error) {
 	//host=localhost user=postgres password=123321 dbname=metrics sslmode=disable
 	var flagDataBaseDSN = flag.String("d", defaultDataBaseDSN, "A string with settings for connecting the postgresql database")
 	var flagKey = flag.String("k", "", "key")
+	var flagAuditFile = flag.String("audit-file", defaultAuditFile, "audit file")
+	var flagAuditURL = flag.String("audit-url", defaultAuditURL, "audit URL")
 
 	flag.Parse()
 
@@ -47,6 +51,8 @@ func parseFlags() (*config.Config, error) {
 	utils.SetBoolIfUnset(envSet, "RESTORE", &cfg.Restore, *flagRestore)
 	utils.SetStringIfUnset(envSet, "DATABASE_DSN", &cfg.DataBaseDSN, *flagDataBaseDSN)
 	utils.SetStringIfUnset(envSet, "KEY", &cfg.Key, *flagKey)
+	utils.SetStringIfUnset(envSet, "AUDIT_FILE", &cfg.AuditFile, *flagAuditFile)
+	utils.SetStringIfUnset(envSet, "AUDIT_URL", &cfg.AuditURL, *flagAuditURL)
 
 	return &cfg, nil
 }

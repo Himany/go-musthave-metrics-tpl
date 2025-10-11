@@ -35,6 +35,8 @@ func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.callAudit(r, []string{metricName})
+
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 }
@@ -130,6 +132,8 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	if hash != nil {
 		w.Header().Set("HashSHA256", hex.EncodeToString(hash))
 	}
+
+	h.callAudit(r, []string{metrics.ID})
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

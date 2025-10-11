@@ -1,6 +1,11 @@
 package handlers
 
-import "github.com/Himany/go-musthave-metrics-tpl/internal/models"
+import (
+	"net/http"
+
+	"github.com/Himany/go-musthave-metrics-tpl/internal/audit"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+)
 
 type MetricsRepo interface {
 	Ping() error
@@ -14,6 +19,15 @@ type MetricsRepo interface {
 }
 
 type Handler struct {
-	Repo MetricsRepo
-	Key  string
+	Repo    MetricsRepo
+	Key     string
+	Auditor *audit.Publisher
+}
+
+func (h *Handler) callAudit(r *http.Request, metricNames []string) {
+	if h.Auditor == nil || len(metricNames) == 0 {
+		return
+	}
+	ev := audit.BuildEvent(r, metricNames)
+	h.Auditor.Publish(ev)
 }

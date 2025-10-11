@@ -16,6 +16,9 @@ type Config struct {
 	DataBaseDSN     string `env:"DATABASE_DSN"`
 
 	Key string `env:"KEY"`
+
+	AuditFile string `env:"AUDIT_FILE"`
+	AuditURL  string `env:"AUDIT_URL"`
 }
 
 func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {

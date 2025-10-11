@@ -43,6 +43,12 @@ func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var names []string
+	for _, m := range metrics {
+		names = append(names, m.ID)
+	}
+	h.callAudit(r, names)
+
 	//Отвечаем на запрос
 	w.WriteHeader(http.StatusOK)
 }

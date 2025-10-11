@@ -2,7 +2,9 @@ package server
 
 import (
 	"database/sql"
+	"time"
 
+	"github.com/Himany/go-musthave-metrics-tpl/internal/audit"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/server/handlers"
@@ -44,7 +46,19 @@ func Run(cfg *config.Config) error {
 		repo = memStorage
 	}
 
-	handler := &handlers.Handler{Repo: repo, Key: cfg.Key}
+	publisher := audit.NewPublisher()
+	if cfg.AuditFile != "" {
+		publisher.Register(audit.NewFileSink(cfg.AuditFile))
+	}
+	if cfg.AuditURL != "" {
+		publisher.Register(audit.NewHTTPSink(cfg.AuditURL, 5*time.Second))
+	}
+
+	handler := &handlers.Handler{
+		Repo:    repo,
+		Key:     cfg.Key,
+		Auditor: publisher,
+	}
 	if err := Router(handler, cfg.Address, cfg.Key); err != nil {
 		return err
 	}
