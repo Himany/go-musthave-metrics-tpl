@@ -72,8 +72,9 @@ func (s *HTTPSink) Notify(event Event) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	_, err = s.client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		logger.Log.Error("audit: HTTP request", zap.Error(err))
 	}
+	resp.Body.Close()
 }
