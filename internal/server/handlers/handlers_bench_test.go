@@ -47,12 +47,12 @@ func Benchmark_UpdateMetricJSON(b *testing.B) {
 	b.ReportAllocs()
 	b.ReportMetric(1, "records/op")
 
-	rand.Seed(time.Now().UnixNano())
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		payload := genOneMetric(rand.Int())
+		payload := genOneMetric(rng.Int())
 		b.StartTimer()
 
 		rr := httptest.NewRecorder()
