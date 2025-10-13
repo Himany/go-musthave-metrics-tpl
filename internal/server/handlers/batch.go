@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// BatchUpdateJSON обновляет несколько метрик, полученных в JSON-массиве одним запросом.
 func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	var metrics []models.Metrics
 	var buf bytes.Buffer

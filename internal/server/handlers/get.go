@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// GetAllMetrics возвращает список всех доступных метрик в виде HTML-страницы.
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	list := make([]string, 0)
 	keysGauge, err := h.Repo.GetKeyGauge()
@@ -50,6 +51,7 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetPing проверяет подключение к хранилищу и возвращает 200 при успехе.
 func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
 	if err := h.Repo.Ping(); err != nil {
 		logger.Log.Error("GetPing", zap.Error(err))
@@ -61,6 +63,7 @@ func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetMetricQuery возвращает значение метрики из хранилища.
 func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
@@ -82,6 +85,7 @@ func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetMetricJSON принимает JSON с описанием метрики и возвращает её текущее значениее.
 func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 	var metrics models.Metrics
 	var buf bytes.Buffer

@@ -7,6 +7,7 @@ import (
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 )
 
+// MetricsRepo описывает минимальный набор методов для хранилища, с которым работают HTTP-хендлеры.
 type MetricsRepo interface {
 	Ping() error
 	UpdateGauge(name string, value float64)
@@ -18,6 +19,7 @@ type MetricsRepo interface {
 	BatchUpdate(metrics []models.Metrics) error
 }
 
+// Handler хранит экземпляр хранилища метрик, ключ для проверки целостности данных и диспетчер событий аудита.
 type Handler struct {
 	Repo    MetricsRepo
 	Key     string

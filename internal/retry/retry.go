@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// WithRetry повторяет операцию с динамической паузой.
 func WithRetry(operation func() error, isRetruableError func(error) bool, inType string) error {
 	retryDelays := []int{0, 1, 3, 5}
 	var lastErr error

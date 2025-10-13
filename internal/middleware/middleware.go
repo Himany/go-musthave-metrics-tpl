@@ -12,6 +12,7 @@ import (
 	"github.com/Himany/go-musthave-metrics-tpl/internal/compress"
 )
 
+// CheckApplicationJSONContentType проверяет Content-Type и разрешает только application/json.
 func CheckApplicationJSONContentType(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
@@ -24,6 +25,7 @@ func CheckApplicationJSONContentType(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// CheckPlainTextContentType проверяет Content-Type и разрешает только text/plain.
 func CheckPlainTextContentType(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")

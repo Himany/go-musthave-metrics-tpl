@@ -15,6 +15,7 @@ import (
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 )
 
+// UpdateHandlerQuery принимает значения метрики через параметры URL и обновляет хранилище.
 func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
@@ -68,6 +69,7 @@ func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) er
 	}
 }
 
+// UpdateHandlerJSON читает метрику из JSON-запроса и сохраняет её в хранилище.
 func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	var metrics models.Metrics
 	var buf bytes.Buffer

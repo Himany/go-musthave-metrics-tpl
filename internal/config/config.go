@@ -2,6 +2,7 @@ package config
 
 import "go.uber.org/zap/zapcore"
 
+// Config содержит настройки запуска сервера и агента, считываемые из флагов и переменных окружения.
 type Config struct {
 	Address  string `env:"ADDRESS"`
 	LogLevel string `env:"LOGLEVEL"`

@@ -1,5 +1,6 @@
 package models
 
+// Metrics описывает структуру метрики, передаваемую между агентом и сервером.
 type Metrics struct {
 	ID    string   `json:"id"`              // имя метрики
 	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
