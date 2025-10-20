@@ -87,5 +87,5 @@ func reportCall(pass *analysis.Pass, call *ast.CallExpr, msg string) {
 	if call.Lparen.IsValid() {
 		pos = call.Lparen
 	}
-	pass.Reportf(pos, msg)
+	pass.Reportf(pos, "%s", msg)
 }
