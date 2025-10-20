@@ -4,21 +4,21 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/retry"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
 
-func (a *agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*resty.Response, time.Duration, error) {
-	retryDelays := []int{0, 1, 3, 5}
-	var lastErr error
+func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*resty.Response, time.Duration, error) {
+	start := time.Now()
 	var lastResp *resty.Response
 
-	start := time.Now()
-	for attempt := 0; attempt < len(retryDelays); attempt++ {
+	err := retry.WithRetry(func() error {
 		request := a.Client.R().
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
@@ -28,36 +28,33 @@ func (a *agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*r
 			request.SetHeader("HashSHA256", hex.EncodeToString(hash))
 		}
 
-		resp, err := request.Post(a.URL + route)
-
+		resp, reqErr := request.Post(a.URL + route)
+		lastResp = resp
+		return reqErr
+	}, func(err error) bool {
 		if err == nil {
-			duration := time.Since(start)
-
-			return resp, duration, nil
-		} else {
-			lastErr = err
-			lastResp = resp
+			return false
 		}
-
-		nonBreakingCodes := map[int]bool{
-			502: true,
-			503: true,
-			504: true,
-			429: true,
+		if lastResp != nil {
+			switch lastResp.StatusCode() {
+			case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout, http.StatusTooManyRequests:
+				return true
+			default:
+				return false
+			}
 		}
-		if _, nonBreaking := nonBreakingCodes[resp.StatusCode()]; resp != nil && !nonBreaking {
-			break
+		var restyErr *resty.ResponseError
+		if errors.As(err, &restyErr) {
+			return true
 		}
+		return true
+	}, "agent_http_request")
 
-		if retryDelays[attempt] != 0 {
-			time.Sleep(time.Duration(retryDelays[attempt]) * time.Second)
-		}
-	}
-
-	return lastResp, time.Since(start), lastErr
+	duration := time.Since(start)
+	return lastResp, duration, err
 }
 
-func (a *agent) createBatchRequest(metrics []models.Metrics) error {
+func (a *Agent) createBatchRequest(metrics []models.Metrics) error {
 	if len(metrics) == 0 {
 		return errors.New("empty metrics")
 	}
@@ -92,7 +89,7 @@ func (a *agent) createBatchRequest(metrics []models.Metrics) error {
 	return err
 }
 
-func (a *agent) createRequest(metricType string, name string, delta *int64, value *float64) error {
+func (a *Agent) createRequest(metricType string, name string, delta *int64, value *float64) error {
 	metrics := models.Metrics{
 		ID:    name,
 		MType: metricType,
@@ -134,7 +131,7 @@ func (a *agent) createRequest(metricType string, name string, delta *int64, valu
 	return err
 }
 
-func (a *agent) reportHandler() {
+func (a *Agent) reportHandler() {
 	for {
 		a.Mutex.Lock()
 

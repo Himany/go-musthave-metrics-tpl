@@ -37,7 +37,7 @@ func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Обновляем данные
-	err = h.Repo.BatchUpdate(metrics)
+	err = h.Storage.Repo.BatchUpdate(metrics)
 	if err != nil {
 		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -48,7 +48,7 @@ func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	for _, m := range metrics {
 		names = append(names, m.ID)
 	}
-	h.callAudit(r, names)
+	h.Audit.Publish(r, names)
 
 	//Отвечаем на запрос
 	w.WriteHeader(http.StatusOK)

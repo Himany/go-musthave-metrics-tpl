@@ -20,6 +20,8 @@ type Config struct {
 
 	AuditFile string `env:"AUDIT_FILE"`
 	AuditURL  string `env:"AUDIT_URL"`
+
+	PprofAddr string `env:"PPROF_ADDR"`
 }
 
 func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
@@ -33,5 +35,6 @@ func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("restore", c.Restore)
 	enc.AddString("dataBaseDSN", c.DataBaseDSN)
 	enc.AddString("key", c.Key)
+	enc.AddString("pprofAddr", c.PprofAddr)
 	return nil
 }

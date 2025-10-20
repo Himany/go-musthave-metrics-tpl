@@ -9,7 +9,8 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-var envSet = map[string]bool{}
+// envTracker инкапсулирует информацию о выставленных переменных окружения.
+type envTracker map[string]bool
 
 // Стандратные значения
 const defaultRunAddr = "localhost:8080"
@@ -19,6 +20,7 @@ const defaultLogLevel = "info"
 const defaultRateLimit = 0
 
 func parseConfig() (*config.Config, error) {
+	envSet := make(envTracker)
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
 	var flagReportSeconds = flag.Int("r", defaultReportSeconds, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", defaultPollSeconds, "poll interval in seconds")

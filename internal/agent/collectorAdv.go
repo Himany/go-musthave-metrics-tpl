@@ -7,7 +7,7 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 )
 
-func (a *agent) collectorAdv() {
+func (a *Agent) collectorAdv() {
 	for {
 		vmStat, _ := mem.VirtualMemory()
 		cpuPercents, _ := cpu.Percent(0, false)

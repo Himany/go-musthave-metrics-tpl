@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (a *agent) collector() {
+func (a *Agent) collector() {
 	var s runtime.MemStats
 
 	for {

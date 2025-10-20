@@ -19,17 +19,33 @@ type MetricsRepo interface {
 	BatchUpdate(metrics []models.Metrics) error
 }
 
-// Handler хранит экземпляр хранилища метрик, ключ для проверки целостности данных и диспетчер событий аудита.
-type Handler struct {
-	Repo    MetricsRepo
-	Key     string
-	Auditor *audit.Publisher
+// StorageHandler инкапсулирует доступ к хранилищу метрик.
+type StorageHandler struct {
+	Repo MetricsRepo
 }
 
-func (h *Handler) callAudit(r *http.Request, metricNames []string) {
-	if h.Auditor == nil || len(metricNames) == 0 {
+// Signer хранит ключ подписи для проверки целостности данных.
+type Signer struct {
+	Key string
+}
+
+// AuditNotifier отвечает за публикацию событий аудита.
+type AuditNotifier struct {
+	Publisher *audit.Publisher
+}
+
+// Publish отправляет событие аудита, если зарегистрированы подписчики.
+func (a AuditNotifier) Publish(r *http.Request, metricNames []string) {
+	if a.Publisher == nil || len(metricNames) == 0 {
 		return
 	}
 	ev := audit.BuildEvent(r, metricNames)
-	h.Auditor.Publish(ev)
+	a.Publisher.Publish(ev)
+}
+
+// Handler объединяет специализированные компоненты для работы HTTP-хендлеров.
+type Handler struct {
+	Storage StorageHandler
+	Signer  Signer
+	Audit   AuditNotifier
 }

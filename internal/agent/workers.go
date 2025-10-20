@@ -5,13 +5,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func (a *agent) CreateWorkers() {
+func (a *Agent) CreateWorkers() {
 	for i := 0; i < a.RateLimit; i++ {
 		go a.WorkerCreateBatchRequest()
 	}
 }
 
-func (a *agent) WorkerCreateBatchRequest() {
+func (a *Agent) WorkerCreateBatchRequest() {
 	for batch := range a.Tasks {
 		err := a.createBatchRequest(batch)
 		if err != nil {

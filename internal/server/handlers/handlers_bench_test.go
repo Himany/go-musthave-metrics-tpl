@@ -16,7 +16,7 @@ import (
 func benchHandler(b *testing.B) *Handler {
 	b.Helper()
 	ms := storage.NewMemStorage("", false)
-	return &Handler{Repo: ms}
+	return &Handler{Storage: StorageHandler{Repo: ms}}
 }
 
 func genOneMetric(i int) []byte {

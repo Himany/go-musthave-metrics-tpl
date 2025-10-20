@@ -11,7 +11,7 @@ func (h *Handler) getStringValue(metricType string, metricName string) (string, 
 
 	switch metricType {
 	case "gauge":
-		value, ok := h.Repo.GetGauge(metricName)
+		value, ok := h.Storage.Repo.GetGauge(metricName)
 		if !ok {
 			return "", false
 		}
@@ -19,7 +19,7 @@ func (h *Handler) getStringValue(metricType string, metricName string) (string, 
 		return result, ok
 
 	case "counter":
-		value, ok := h.Repo.GetCounter(metricName)
+		value, ok := h.Storage.Repo.GetCounter(metricName)
 		if ok {
 			result = strconv.FormatInt(value, 10)
 		}

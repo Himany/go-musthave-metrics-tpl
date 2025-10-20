@@ -15,7 +15,7 @@ import (
 
 func TestUpdate(t *testing.T) {
 	memStorage := storage.NewMemStorage("", false)
-	handler := &Handler{Repo: memStorage}
+	handler := &Handler{Storage: StorageHandler{Repo: memStorage}}
 
 	router := chi.NewRouter()
 	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
@@ -79,7 +79,7 @@ func TestUpdate(t *testing.T) {
 
 func TestGetMetric(t *testing.T) {
 	memStorage := storage.NewMemStorage("", false)
-	handler := &Handler{Repo: memStorage}
+	handler := &Handler{Storage: StorageHandler{Repo: memStorage}}
 
 	router := chi.NewRouter()
 	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
@@ -129,7 +129,7 @@ func TestGetMetric(t *testing.T) {
 
 func TestGetAllMetrics(t *testing.T) {
 	memStorage := storage.NewMemStorage("", false)
-	handler := &Handler{Repo: memStorage}
+	handler := &Handler{Storage: StorageHandler{Repo: memStorage}}
 
 	router := chi.NewRouter()
 	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))

@@ -16,13 +16,13 @@ import (
 // GetAllMetrics возвращает список всех доступных метрик в виде HTML-страницы.
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 	list := make([]string, 0)
-	keysGauge, err := h.Repo.GetKeyGauge()
+	keysGauge, err := h.Storage.Repo.GetKeyGauge()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	keysCounter, err := h.Repo.GetKeyCounter()
+	keysCounter, err := h.Storage.Repo.GetKeyCounter()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -53,7 +53,7 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 // GetPing проверяет подключение к хранилищу и возвращает 200 при успехе.
 func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
-	if err := h.Repo.Ping(); err != nil {
+	if err := h.Storage.Repo.Ping(); err != nil {
 		logger.Log.Error("GetPing", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -115,14 +115,14 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 	//Получаем данные
 	switch metrics.MType {
 	case "gauge":
-		value, ok := h.Repo.GetGauge(metrics.ID)
+		value, ok := h.Storage.Repo.GetGauge(metrics.ID)
 		if !(ok) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		metrics.Value = &value
 	case "counter":
-		value, ok := h.Repo.GetCounter(metrics.ID)
+		value, ok := h.Storage.Repo.GetCounter(metrics.ID)
 		if !(ok) {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -138,7 +138,7 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash := bodySignature(resp, h.Key)
+	hash := bodySignature(resp, h.Signer.Key)
 	if hash != nil {
 		w.Header().Set("HashSHA256", hex.EncodeToString(hash))
 	}

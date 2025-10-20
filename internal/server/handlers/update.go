@@ -36,7 +36,7 @@ func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.callAudit(r, []string{metricName})
+	h.Audit.Publish(r, []string{metricName})
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
@@ -49,7 +49,7 @@ func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) er
 		if err != nil {
 			return fmt.Errorf("error parsing float: %w", err)
 		}
-		h.Repo.UpdateGauge(metricName, val)
+		h.Storage.Repo.UpdateGauge(metricName, val)
 		return nil
 
 	case "counter":
@@ -57,11 +57,11 @@ func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) er
 		if err != nil {
 			return fmt.Errorf("error parsing int: %w", err)
 		}
-		old, ok := h.Repo.GetCounter(metricName)
+		old, ok := h.Storage.Repo.GetCounter(metricName)
 		if ok {
 			val += old
 		}
-		h.Repo.UpdateCounter(metricName, val)
+		h.Storage.Repo.UpdateCounter(metricName, val)
 		return nil
 
 	default:
@@ -99,8 +99,8 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 	//Обновляем данные
 	switch metrics.MType {
 	case "gauge":
-		h.Repo.UpdateGauge(metrics.ID, *metrics.Value) //Обновляем данные в хранилище
-		newValue, ok := h.Repo.GetGauge(metrics.ID)    //Обновляем данные в структуре для ответа
+		h.Storage.Repo.UpdateGauge(metrics.ID, *metrics.Value) //Обновляем данные в хранилище
+		newValue, ok := h.Storage.Repo.GetGauge(metrics.ID)    //Обновляем данные в структуре для ответа
 		if ok {
 			*metrics.Value = newValue
 		} else {
@@ -109,12 +109,12 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 
 	case "counter":
 		value := *metrics.Delta
-		old, ok := h.Repo.GetCounter(metrics.ID)
+		old, ok := h.Storage.Repo.GetCounter(metrics.ID)
 		if ok {
 			value += old
 		}
-		h.Repo.UpdateCounter(metrics.ID, value)       //Обновляем данные в хранилище
-		newValue, ok := h.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
+		h.Storage.Repo.UpdateCounter(metrics.ID, value)       //Обновляем данные в хранилище
+		newValue, ok := h.Storage.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
 		if ok {
 			*metrics.Delta = newValue
 		} else {
@@ -130,12 +130,12 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash := bodySignature(resp, h.Key)
+	hash := bodySignature(resp, h.Signer.Key)
 	if hash != nil {
 		w.Header().Set("HashSHA256", hex.EncodeToString(hash))
 	}
 
-	h.callAudit(r, []string{metrics.ID})
+	h.Audit.Publish(r, []string{metrics.ID})
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -8,7 +8,8 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-var envSet = map[string]bool{}
+// envTracker инкапсулирует информацию о выставленных переменных окружения.
+type envTracker map[string]bool
 
 // Стандратные значения
 const defaultRunAddr = "localhost:8080"
@@ -19,8 +20,10 @@ const defaultRestore = false
 const defaultDataBaseDSN = ""
 const defaultAuditFile = ""
 const defaultAuditURL = ""
+const defaultPprofAddr = ""
 
 func parseFlags() (*config.Config, error) {
+	envSet := make(envTracker)
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
 	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagStoreInterval = flag.Int("i", defaultStoreInterval, "time interval in seconds after which the current server readings are saved to disk")
@@ -31,6 +34,7 @@ func parseFlags() (*config.Config, error) {
 	var flagKey = flag.String("k", "", "key")
 	var flagAuditFile = flag.String("audit-file", defaultAuditFile, "audit file")
 	var flagAuditURL = flag.String("audit-url", defaultAuditURL, "audit URL")
+	var flagPprofAddr = flag.String("pprof-addr", defaultPprofAddr, "enable pprof on the provided address (empty to disable)")
 
 	flag.Parse()
 
@@ -53,6 +57,7 @@ func parseFlags() (*config.Config, error) {
 	utils.SetStringIfUnset(envSet, "KEY", &cfg.Key, *flagKey)
 	utils.SetStringIfUnset(envSet, "AUDIT_FILE", &cfg.AuditFile, *flagAuditFile)
 	utils.SetStringIfUnset(envSet, "AUDIT_URL", &cfg.AuditURL, *flagAuditURL)
+	utils.SetStringIfUnset(envSet, "PPROF_ADDR", &cfg.PprofAddr, *flagPprofAddr)
 
 	return &cfg, nil
 }

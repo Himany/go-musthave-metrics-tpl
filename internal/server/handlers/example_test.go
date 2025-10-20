@@ -13,7 +13,7 @@ import (
 
 func ExampleHandler_UpdateHandlerJSON() {
 	repo := storage.NewMemStorage("", false)
-	handler := &Handler{Repo: repo}
+	handler := &Handler{Storage: StorageHandler{Repo: repo}}
 
 	value := 42.0
 	metric := models.Metrics{ID: "Alloc", MType: "gauge", Value: &value}
@@ -33,7 +33,7 @@ func ExampleHandler_UpdateHandlerJSON() {
 
 func ExampleHandler_GetMetricJSON() {
 	repo := storage.NewMemStorage("", false)
-	handler := &Handler{Repo: repo}
+	handler := &Handler{Storage: StorageHandler{Repo: repo}}
 	repo.UpdateGauge("Alloc", 42)
 
 	metric := models.Metrics{ID: "Alloc", MType: "gauge"}
@@ -53,7 +53,7 @@ func ExampleHandler_GetMetricJSON() {
 
 func ExampleHandler_BatchUpdateJSON() {
 	repo := storage.NewMemStorage("", false)
-	handler := &Handler{Repo: repo}
+	handler := &Handler{Storage: StorageHandler{Repo: repo}}
 
 	value := 42.0
 	delta := int64(3)

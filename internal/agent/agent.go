@@ -8,7 +8,8 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type agent struct {
+// Agent собирает системные метрики и отправляет их на сервер.
+type Agent struct {
 	URL            string
 	ReportInterval int
 	PollInterval   int
@@ -21,8 +22,8 @@ type agent struct {
 	Tasks          chan []models.Metrics
 }
 
-func createAgent(url string, reportInterval int, pollInterval int, key string, rateLimit int) *agent {
-	return (&agent{
+func createAgent(url string, reportInterval int, pollInterval int, key string, rateLimit int) *Agent {
+	return (&Agent{
 		URL:            url,
 		ReportInterval: reportInterval,
 		PollInterval:   pollInterval,
@@ -36,13 +37,16 @@ func createAgent(url string, reportInterval int, pollInterval int, key string, r
 }
 
 func Run(cfg *config.Config) error {
-	agent := createAgent(cfg.Address, cfg.ReportInterval, cfg.PollInterval, cfg.Key, cfg.RateLimit)
+	ag := createAgent(cfg.Address, cfg.ReportInterval, cfg.PollInterval, cfg.Key, cfg.RateLimit)
 
-	agent.CreateWorkers()
+	ag.CreateWorkers()
 
-	go agent.collector()
-	go agent.collectorAdv()
-	go agent.reportHandler()
+	go ag.collector()
+	go ag.collectorAdv()
+	go ag.reportHandler()
 
-	select {}
+	stop := make(chan struct{})
+	<-stop
+
+	return nil
 }

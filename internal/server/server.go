@@ -55,10 +55,12 @@ func Run(cfg *config.Config) error {
 	}
 
 	handler := &handlers.Handler{
-		Repo:    repo,
-		Key:     cfg.Key,
-		Auditor: publisher,
+		Storage: handlers.StorageHandler{Repo: repo},
+		Signer:  handlers.Signer{Key: cfg.Key},
+		Audit:   handlers.AuditNotifier{Publisher: publisher},
 	}
+
+	startPprof(cfg.PprofAddr)
 	if err := Router(handler, cfg.Address, cfg.Key); err != nil {
 		return err
 	}
