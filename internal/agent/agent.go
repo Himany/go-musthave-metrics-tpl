@@ -37,7 +37,7 @@ func createAgent(url string, reportInterval int, pollInterval int, key string, r
 }
 
 func Run(cfg *config.Config) error {
-	ag := createAgent(cfg.Address, cfg.ReportInterval, cfg.PollInterval, cfg.Key, cfg.RateLimit)
+	ag := createAgent(cfg.Server.Address, cfg.Agent.ReportInterval, cfg.Agent.PollInterval, cfg.Security.Key, cfg.Agent.RateLimit)
 
 	ag.CreateWorkers()
 

@@ -1,12 +1,11 @@
 package audit
 
 import (
-	"bytes"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
 
@@ -44,15 +43,13 @@ func (s *FileSink) Notify(event Event) {
 // HTTP
 type HTTPSink struct {
 	url    string
-	client *http.Client
+	client *resty.Client
 }
 
 func NewHTTPSink(url string, timeout time.Duration) *HTTPSink {
 	return &HTTPSink{
-		url: url,
-		client: &http.Client{
-			Timeout: timeout,
-		},
+		url:    url,
+		client: resty.New().SetTimeout(timeout),
 	}
 }
 
@@ -66,15 +63,13 @@ func (s *HTTPSink) Notify(event Event) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPost, s.url, bytes.NewReader(data))
-	if err != nil {
-		logger.Log.Error("audit: NewRequest", zap.Error(err))
-		return
-	}
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	resp, err := s.client.Do(req)
+	resp, err := s.client.R().
+		SetHeader("Content-Type", "application/json; charset=utf-8").
+		SetBody(data).
+		Post(s.url)
 	if err != nil {
 		logger.Log.Error("audit: HTTP request", zap.Error(err))
+		return
 	}
-	resp.Body.Close()
+	_ = resp
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -30,7 +31,7 @@ func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.updateDataQuery(metricType, metricName, metricValue); err != nil {
+	if err := h.updateDataQuery(r.Context(), metricType, metricName, metricValue); err != nil {
 		logger.Log.Error("UpdateHandlerQuery", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -42,31 +43,31 @@ func (h *Handler) UpdateHandlerQuery(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) updateDataQuery(metricType, metricName, metricValue string) error {
+func (h *Handler) updateDataQuery(ctx context.Context, metricType, metricName, metricValue string) error {
+	var metric models.Metrics
+	metric.ID = metricName
+	metric.MType = metricType
+
 	switch metricType {
 	case "gauge":
 		val, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			return fmt.Errorf("error parsing float: %w", err)
 		}
-		h.Storage.Repo.UpdateGauge(metricName, val)
-		return nil
+		metric.Value = &val
 
 	case "counter":
 		val, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			return fmt.Errorf("error parsing int: %w", err)
 		}
-		old, ok := h.Storage.Repo.GetCounter(metricName)
-		if ok {
-			val += old
-		}
-		h.Storage.Repo.UpdateCounter(metricName, val)
-		return nil
+		metric.Delta = &val
 
 	default:
 		return fmt.Errorf("unknown metric type: %s", metricType)
 	}
+
+	return h.Service.UpdateMetric(ctx, metric)
 }
 
 // UpdateHandlerJSON читает метрику из JSON-запроса и сохраняет её в хранилище.
@@ -89,41 +90,23 @@ func (h *Handler) UpdateHandlerJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Проверка объекта
-	if err = validateUpdateJSON(metrics); err != nil {
+	//Обновляем данные через сервис
+	if err := h.Service.UpdateMetric(r.Context(), metrics); err != nil {
 		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	//Обновляем данные
-	switch metrics.MType {
-	case "gauge":
-		h.Storage.Repo.UpdateGauge(metrics.ID, *metrics.Value) //Обновляем данные в хранилище
-		newValue, ok := h.Storage.Repo.GetGauge(metrics.ID)    //Обновляем данные в структуре для ответа
-		if ok {
-			*metrics.Value = newValue
-		} else {
-			logger.Log.Error("UpdateHandlerJSON -> GetGauge", zap.Error(err))
-		}
-
-	case "counter":
-		value := *metrics.Delta
-		old, ok := h.Storage.Repo.GetCounter(metrics.ID)
-		if ok {
-			value += old
-		}
-		h.Storage.Repo.UpdateCounter(metrics.ID, value)       //Обновляем данные в хранилище
-		newValue, ok := h.Storage.Repo.GetCounter(metrics.ID) //Обновляем данные в структуре для ответа
-		if ok {
-			*metrics.Delta = newValue
-		} else {
-			logger.Log.Error("UpdateHandlerJSON -> GetCounter", zap.Error(err))
-		}
+	//Получаем обновленные данные
+	result, err := h.Service.GetMetricJSON(r.Context(), metrics)
+	if err != nil {
+		logger.Log.Error("UpdateHandlerJson -> GetMetricJSON", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	//Отвечаем на запрос
-	resp, err := json.Marshal(metrics)
+	resp, err := json.Marshal(result)
 	if err != nil {
 		logger.Log.Error("UpdateHandlerJson", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)

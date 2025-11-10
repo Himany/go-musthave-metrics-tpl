@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var ErrEmptyMetrics = errors.New("empty metrics")
+
 func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*resty.Response, time.Duration, error) {
 	start := time.Now()
 	var lastResp *resty.Response
@@ -56,7 +58,7 @@ func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*r
 
 func (a *Agent) createBatchRequest(metrics []models.Metrics) error {
 	if len(metrics) == 0 {
-		return errors.New("empty metrics")
+		return ErrEmptyMetrics
 	}
 
 	jsonData, err := json.Marshal(metrics)
@@ -132,7 +134,10 @@ func (a *Agent) createRequest(metricType string, name string, delta *int64, valu
 }
 
 func (a *Agent) reportHandler() {
-	for {
+	ticker := time.NewTicker(time.Duration(a.ReportInterval) * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		a.Mutex.Lock()
 
 		var batch []models.Metrics
@@ -153,7 +158,5 @@ func (a *Agent) reportHandler() {
 		a.Mutex.Unlock()
 
 		a.Tasks <- batch
-
-		time.Sleep(time.Duration(a.ReportInterval) * time.Second)
 	}
 }

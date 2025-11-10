@@ -24,5 +24,5 @@ func Router(handler *handlers.Handler, runAddr string, key string) error {
 
 	r.Post("/updates/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.BatchUpdateJSON)))
 
-	return http.ListenAndServe(runAddr, logger.RequestLogger(middleware.Gzip(r)))
+	return http.ListenAndServe(runAddr, middleware.LoggingMiddleware(logger.RequestLogger(middleware.Gzip(r))))
 }

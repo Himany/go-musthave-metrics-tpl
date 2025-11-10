@@ -2,39 +2,67 @@ package config
 
 import "go.uber.org/zap/zapcore"
 
-// Config содержит настройки запуска сервера и агента, считываемые из флагов и переменных окружения.
-type Config struct {
-	Address  string `env:"ADDRESS"`
-	LogLevel string `env:"LOGLEVEL"`
+// ServerConfig содержит настройки сервера
+type ServerConfig struct {
+	Address       string `env:"ADDRESS"`
+	StoreInterval int    `env:"STORE_INTERVAL"`
+	Restore       bool   `env:"RESTORE"`
+	PprofAddr     string `env:"PPROF_ADDR"`
+}
 
+// DatabaseConfig содержит настройки базы данных
+type DatabaseConfig struct {
+	DSN string `env:"DATABASE_DSN"`
+}
+
+// StorageConfig содержит настройки хранилища
+type StorageConfig struct {
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+}
+
+// AgentConfig содержит настройки агента
+type AgentConfig struct {
 	ReportInterval int `env:"REPORT_INTERVAL"`
 	PollInterval   int `env:"POLL_INTERVAL"`
 	RateLimit      int `env:"RATE_LIMIT"`
+}
 
-	StoreInterval   int    `env:"STORE_INTERVAL"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH"`
-	Restore         bool   `env:"RESTORE"`
-	DataBaseDSN     string `env:"DATABASE_DSN"`
-
+// SecurityConfig содержит настройки безопасности
+type SecurityConfig struct {
 	Key string `env:"KEY"`
+}
 
-	AuditFile string `env:"AUDIT_FILE"`
-	AuditURL  string `env:"AUDIT_URL"`
+// AuditConfig содержит настройки аудита
+type AuditConfig struct {
+	File string `env:"AUDIT_FILE"`
+	URL  string `env:"AUDIT_URL"`
+}
 
-	PprofAddr string `env:"PPROF_ADDR"`
+// Config содержит настройки запуска сервера и агента, считываемые из флагов и переменных окружения.
+type Config struct {
+	LogLevel string `env:"LOGLEVEL"`
+
+	Server   ServerConfig
+	Database DatabaseConfig
+	Storage  StorageConfig
+	Agent    AgentConfig
+	Security SecurityConfig
+	Audit    AuditConfig
 }
 
 func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("address", c.Address)
+	enc.AddString("address", c.Server.Address)
 	enc.AddString("logLevel", c.LogLevel)
-	enc.AddInt("reportInterval", c.ReportInterval)
-	enc.AddInt("pollInterval", c.PollInterval)
-	enc.AddInt("storeInterval", c.StoreInterval)
-	enc.AddInt("rateLimit", c.RateLimit)
-	enc.AddString("fileStoragePath", c.FileStoragePath)
-	enc.AddBool("restore", c.Restore)
-	enc.AddString("dataBaseDSN", c.DataBaseDSN)
-	enc.AddString("key", c.Key)
-	enc.AddString("pprofAddr", c.PprofAddr)
+	enc.AddInt("reportInterval", c.Agent.ReportInterval)
+	enc.AddInt("pollInterval", c.Agent.PollInterval)
+	enc.AddInt("storeInterval", c.Server.StoreInterval)
+	enc.AddInt("rateLimit", c.Agent.RateLimit)
+	enc.AddString("fileStoragePath", c.Storage.FileStoragePath)
+	enc.AddBool("restore", c.Server.Restore)
+	enc.AddString("dataBaseDSN", c.Database.DSN)
+	enc.AddString("key", c.Security.Key)
+	enc.AddString("pprofAddr", c.Server.PprofAddr)
+	enc.AddString("auditFile", c.Audit.File)
+	enc.AddString("auditURL", c.Audit.URL)
 	return nil
 }

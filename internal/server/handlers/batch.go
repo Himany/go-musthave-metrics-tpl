@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
-	"go.uber.org/zap"
 )
 
 // BatchUpdateJSON обновляет несколько метрик, полученных в JSON-массиве одним запросом.
@@ -18,28 +16,24 @@ func (h *Handler) BatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	//читаем тело запроса
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	//десериализуем JSON в Visitor
 	if err = json.Unmarshal(buf.Bytes(), &metrics); err != nil {
-		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(metrics) == 0 {
-		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	//Обновляем данные
-	err = h.Storage.Repo.BatchUpdate(metrics)
+	//Обновляем данные через сервис
+	err = h.Service.BatchUpdate(r.Context(), metrics)
 	if err != nil {
-		logger.Log.Error("BatchUpdateJSON", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

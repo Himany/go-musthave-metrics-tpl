@@ -48,16 +48,16 @@ func parseFlags() (*config.Config, error) {
 		return nil, err
 	}
 
-	utils.SetStringIfUnset(envSet, "ADDRESS", &cfg.Address, *flagRunAddr)
+	utils.SetStringIfUnset(envSet, "ADDRESS", &cfg.Server.Address, *flagRunAddr)
 	utils.SetStringIfUnset(envSet, "LOGLEVEL", &cfg.LogLevel, *flagLogLevel)
-	utils.SetIntIfUnset(envSet, "STORE_INTERVAL", &cfg.StoreInterval, *flagStoreInterval)
-	utils.SetStringIfUnset(envSet, "FILE_STORAGE_PATH", &cfg.FileStoragePath, *flagFileStoragePath)
-	utils.SetBoolIfUnset(envSet, "RESTORE", &cfg.Restore, *flagRestore)
-	utils.SetStringIfUnset(envSet, "DATABASE_DSN", &cfg.DataBaseDSN, *flagDataBaseDSN)
-	utils.SetStringIfUnset(envSet, "KEY", &cfg.Key, *flagKey)
-	utils.SetStringIfUnset(envSet, "AUDIT_FILE", &cfg.AuditFile, *flagAuditFile)
-	utils.SetStringIfUnset(envSet, "AUDIT_URL", &cfg.AuditURL, *flagAuditURL)
-	utils.SetStringIfUnset(envSet, "PPROF_ADDR", &cfg.PprofAddr, *flagPprofAddr)
+	utils.SetIntIfUnset(envSet, "STORE_INTERVAL", &cfg.Server.StoreInterval, *flagStoreInterval)
+	utils.SetStringIfUnset(envSet, "FILE_STORAGE_PATH", &cfg.Storage.FileStoragePath, *flagFileStoragePath)
+	utils.SetBoolIfUnset(envSet, "RESTORE", &cfg.Server.Restore, *flagRestore)
+	utils.SetStringIfUnset(envSet, "DATABASE_DSN", &cfg.Database.DSN, *flagDataBaseDSN)
+	utils.SetStringIfUnset(envSet, "KEY", &cfg.Security.Key, *flagKey)
+	utils.SetStringIfUnset(envSet, "AUDIT_FILE", &cfg.Audit.File, *flagAuditFile)
+	utils.SetStringIfUnset(envSet, "AUDIT_URL", &cfg.Audit.URL, *flagAuditURL)
+	utils.SetStringIfUnset(envSet, "PPROF_ADDR", &cfg.Server.PprofAddr, *flagPprofAddr)
 
 	return &cfg, nil
 }

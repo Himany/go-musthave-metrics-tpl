@@ -2,18 +2,24 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/service"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/storage"
 )
 
 func ExampleHandler_UpdateHandlerJSON() {
 	repo := storage.NewMemStorage("", false)
-	handler := &Handler{Storage: StorageHandler{Repo: repo}}
+	metricsService := service.NewMetricsService(repo)
+	handler := &Handler{
+		Storage: StorageHandler{Repo: repo},
+		Service: metricsService,
+	}
 
 	value := 42.0
 	metric := models.Metrics{ID: "Alloc", MType: "gauge", Value: &value}
@@ -33,8 +39,12 @@ func ExampleHandler_UpdateHandlerJSON() {
 
 func ExampleHandler_GetMetricJSON() {
 	repo := storage.NewMemStorage("", false)
-	handler := &Handler{Storage: StorageHandler{Repo: repo}}
-	repo.UpdateGauge("Alloc", 42)
+	metricsService := service.NewMetricsService(repo)
+	handler := &Handler{
+		Storage: StorageHandler{Repo: repo},
+		Service: metricsService,
+	}
+	repo.UpdateGauge(context.Background(), "Alloc", 42)
 
 	metric := models.Metrics{ID: "Alloc", MType: "gauge"}
 	body, _ := json.Marshal(metric)
@@ -53,7 +63,11 @@ func ExampleHandler_GetMetricJSON() {
 
 func ExampleHandler_BatchUpdateJSON() {
 	repo := storage.NewMemStorage("", false)
-	handler := &Handler{Storage: StorageHandler{Repo: repo}}
+	metricsService := service.NewMetricsService(repo)
+	handler := &Handler{
+		Storage: StorageHandler{Repo: repo},
+		Service: metricsService,
+	}
 
 	value := 42.0
 	delta := int64(3)
@@ -68,8 +82,8 @@ func ExampleHandler_BatchUpdateJSON() {
 
 	handler.BatchUpdateJSON(rec, req)
 
-	gauge, _ := repo.GetGauge("Alloc")
-	counter, _ := repo.GetCounter("PollCount")
+	gauge, _ := repo.GetGauge(context.Background(), "Alloc")
+	counter, _ := repo.GetCounter(context.Background(), "PollCount")
 
 	fmt.Println(rec.Code)
 	fmt.Printf("%.0f %d\n", gauge, counter)

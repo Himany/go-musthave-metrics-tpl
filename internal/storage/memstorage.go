@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -33,11 +34,11 @@ func NewMemStorage(path string, isSyncSave bool) *MemStorageData {
 	}
 }
 
-func (s *MemStorageData) Ping() error {
+func (s *MemStorageData) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *MemStorageData) UpdateGauge(name string, value float64) {
+func (s *MemStorageData) UpdateGauge(ctx context.Context, name string, value float64) {
 	s.mu.Lock()
 	s.Gauge[name] = value
 	s.mu.Unlock()
@@ -48,7 +49,7 @@ func (s *MemStorageData) UpdateGauge(name string, value float64) {
 	}
 }
 
-func (s *MemStorageData) UpdateCounter(name string, value int64) {
+func (s *MemStorageData) UpdateCounter(ctx context.Context, name string, value int64) {
 	s.mu.Lock()
 	s.Counter[name] = value
 	s.mu.Unlock()
@@ -59,14 +60,14 @@ func (s *MemStorageData) UpdateCounter(name string, value int64) {
 	}
 }
 
-func (s *MemStorageData) GetGauge(name string) (float64, bool) {
+func (s *MemStorageData) GetGauge(ctx context.Context, name string) (float64, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.Gauge[name]
 	return val, ok
 }
 
-func (s *MemStorageData) GetKeyGauge() ([]string, error) {
+func (s *MemStorageData) GetKeyGauge(ctx context.Context) ([]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	keys := make([]string, 0, len(s.Gauge))
@@ -76,14 +77,14 @@ func (s *MemStorageData) GetKeyGauge() ([]string, error) {
 	return keys, nil
 }
 
-func (s *MemStorageData) GetCounter(name string) (int64, bool) {
+func (s *MemStorageData) GetCounter(ctx context.Context, name string) (int64, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	val, ok := s.Counter[name]
 	return val, ok
 }
 
-func (s *MemStorageData) GetKeyCounter() ([]string, error) {
+func (s *MemStorageData) GetKeyCounter(ctx context.Context) ([]string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	keys := make([]string, 0, len(s.Counter))
@@ -176,7 +177,7 @@ func (s *MemStorageData) SaveHandler(interval int) {
 	}
 }
 
-func (s *MemStorageData) BatchUpdate(metrics []models.Metrics) error {
+func (s *MemStorageData) BatchUpdate(ctx context.Context, metrics []models.Metrics) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, m := range metrics {

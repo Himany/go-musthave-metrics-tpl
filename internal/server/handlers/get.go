@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
+	apperrors "github.com/Himany/go-musthave-metrics-tpl/internal/errors"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
 	"github.com/go-chi/chi/v5"
@@ -15,31 +17,17 @@ import (
 
 // GetAllMetrics возвращает список всех доступных метрик в виде HTML-страницы.
 func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
-	list := make([]string, 0)
-	keysGauge, err := h.Storage.Repo.GetKeyGauge()
+	metricsData, err := h.Service.GetAllMetricsData(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	keysCounter, err := h.Storage.Repo.GetKeyCounter()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	list := make([]string, 0, len(metricsData))
+	for name, value := range metricsData {
+		list = append(list, name+": "+value+";")
 	}
 
-	for _, item := range keysGauge {
-		value, ok := h.getStringValue("gauge", item)
-		if ok {
-			list = append(list, (item + ": " + value + ";"))
-		}
-	}
-	for _, item := range keysCounter {
-		value, ok := h.getStringValue("counter", item)
-		if ok {
-			list = append(list, (item + ": " + value + ";"))
-		}
-	}
 	resultString := strings.Join(list, "\n")
 
 	w.Header().Set("Content-Type", "text/html")
@@ -53,7 +41,7 @@ func (h *Handler) GetAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 // GetPing проверяет подключение к хранилищу и возвращает 200 при успехе.
 func (h *Handler) GetPing(w http.ResponseWriter, r *http.Request) {
-	if err := h.Storage.Repo.Ping(); err != nil {
+	if err := h.Service.PingStorage(r.Context()); err != nil {
 		logger.Log.Error("GetPing", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -68,19 +56,31 @@ func (h *Handler) GetMetricQuery(w http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	if metricName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	value, err := h.Service.GetMetric(r.Context(), metricType, metricName)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	value, ok := h.getStringValue(metricType, metricName)
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		return
+	var valueStr string
+	switch metricType {
+	case "gauge":
+		if v, ok := value.(float64); ok {
+			valueStr = models.FormatGaugeValue(v)
+		}
+	case "counter":
+		if v, ok := value.(int64); ok {
+			valueStr = models.FormatCounterValue(v)
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(value)); err != nil {
+	if _, err := w.Write([]byte(valueStr)); err != nil {
 		logger.Log.Error("GetMetric", zap.Error(err))
 	}
 }
@@ -105,33 +105,20 @@ func (h *Handler) GetMetricJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Проверка объекта
-	if err = validateGetMetricJSON(metrics); err != nil {
-		logger.Log.Error("GetMetricJson", zap.Error(err))
-		w.WriteHeader(http.StatusBadRequest)
+	//Получаем данные через сервис
+	result, err := h.Service.GetMetricJSON(r.Context(), metrics)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrMetricNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			logger.Log.Error("GetMetricJson", zap.Error(err))
+			w.WriteHeader(http.StatusBadRequest)
+		}
 		return
 	}
 
-	//Получаем данные
-	switch metrics.MType {
-	case "gauge":
-		value, ok := h.Storage.Repo.GetGauge(metrics.ID)
-		if !(ok) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		metrics.Value = &value
-	case "counter":
-		value, ok := h.Storage.Repo.GetCounter(metrics.ID)
-		if !(ok) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		metrics.Delta = &value
-	}
-
 	//Отвечаем на запрос
-	resp, err := json.Marshal(metrics)
+	resp, err := json.Marshal(result)
 	if err != nil {
 		logger.Log.Error("GetMetricJson", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)

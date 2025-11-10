@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -42,14 +43,14 @@ func NewPostgresStorage(db *sql.DB) (*dbStorageData, error) {
 	return &dbStorageData{db: db}, nil
 }
 
-func (s *dbStorageData) Ping() error {
-	err := s.db.Ping()
+func (s *dbStorageData) Ping(ctx context.Context) error {
+	err := s.db.PingContext(ctx)
 	return err
 }
 
-func (s *dbStorageData) UpdateGauge(name string, value float64) {
+func (s *dbStorageData) UpdateGauge(ctx context.Context, name string, value float64) {
 	retry.WithRetry(func() error {
-		_, err := s.db.Exec(`
+		_, err := s.db.ExecContext(ctx, `
 			INSERT INTO gauges (id, value) VALUES ($1, $2)
 			ON CONFLICT (id) DO UPDATE SET value = $2;
 		`, name, value)
@@ -57,9 +58,9 @@ func (s *dbStorageData) UpdateGauge(name string, value float64) {
 	}, isRetriableDBError, "UpdateGauge")
 }
 
-func (s *dbStorageData) UpdateCounter(name string, value int64) {
+func (s *dbStorageData) UpdateCounter(ctx context.Context, name string, value int64) {
 	retry.WithRetry(func() error {
-		_, err := s.db.Exec(`
+		_, err := s.db.ExecContext(ctx, `
 			INSERT INTO counters (id, delta) VALUES ($1, $2)
 			ON CONFLICT (id) DO UPDATE SET delta = $2;
 		`, name, value)
@@ -67,9 +68,9 @@ func (s *dbStorageData) UpdateCounter(name string, value int64) {
 	}, isRetriableDBError, "UpdateCounter")
 }
 
-func (s *dbStorageData) GetGauge(name string) (float64, bool) {
+func (s *dbStorageData) GetGauge(ctx context.Context, name string) (float64, bool) {
 	var value float64
-	err := s.db.QueryRow(`SELECT value FROM gauges WHERE id = $1`, name).Scan(&value)
+	err := s.db.QueryRowContext(ctx, `SELECT value FROM gauges WHERE id = $1`, name).Scan(&value)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			logger.Log.Error("DB GetGauge query failed", zap.Error(err))
@@ -79,9 +80,9 @@ func (s *dbStorageData) GetGauge(name string) (float64, bool) {
 	return value, true
 }
 
-func (s *dbStorageData) GetCounter(name string) (int64, bool) {
+func (s *dbStorageData) GetCounter(ctx context.Context, name string) (int64, bool) {
 	var delta int64
-	err := s.db.QueryRow(`SELECT delta FROM counters WHERE id = $1`, name).Scan(&delta)
+	err := s.db.QueryRowContext(ctx, `SELECT delta FROM counters WHERE id = $1`, name).Scan(&delta)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			logger.Log.Error("DB GetCounter query failed", zap.Error(err))
@@ -91,8 +92,8 @@ func (s *dbStorageData) GetCounter(name string) (int64, bool) {
 	return delta, true
 }
 
-func (s *dbStorageData) GetKeyGauge() ([]string, error) {
-	rows, err := s.db.Query(`SELECT id FROM gauges`)
+func (s *dbStorageData) GetKeyGauge(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM gauges`)
 	if err != nil {
 		logger.Log.Error("DB GetKeyGauge query failed", zap.Error(err))
 		return nil, err
@@ -121,8 +122,8 @@ func (s *dbStorageData) GetKeyGauge() ([]string, error) {
 	return keys, nil
 }
 
-func (s *dbStorageData) GetKeyCounter() ([]string, error) {
-	rows, err := s.db.Query(`SELECT id FROM counters`)
+func (s *dbStorageData) GetKeyCounter(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id FROM counters`)
 	if err != nil {
 		logger.Log.Error("DB GetKeyCounter query failed", zap.Error(err))
 		return nil, err
@@ -151,9 +152,9 @@ func (s *dbStorageData) GetKeyCounter() ([]string, error) {
 	return keys, nil
 }
 
-func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
+func (s *dbStorageData) BatchUpdate(ctx context.Context, metrics []models.Metrics) error {
 	return retry.WithRetry(func() error {
-		tx, err := s.db.Begin()
+		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -166,7 +167,7 @@ func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
 				if m.Value == nil {
 					continue
 				}
-				_, err := tx.Exec(`
+				_, err := tx.ExecContext(ctx, `
 					INSERT INTO gauges (id, value) VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE SET value = $2;
 				`, m.ID, *m.Value)
@@ -178,7 +179,7 @@ func (s *dbStorageData) BatchUpdate(metrics []models.Metrics) error {
 				if m.Delta == nil {
 					continue
 				}
-				_, err := tx.Exec(`
+				_, err := tx.ExecContext(ctx, `
 					INSERT INTO counters (id, delta) VALUES ($1, $2)
 					ON CONFLICT (id) DO UPDATE SET delta = counters.delta + $2;
 				`, m.ID, *m.Delta)

@@ -10,12 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/middleware"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/service"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/storage"
 )
 
 func TestUpdate(t *testing.T) {
 	memStorage := storage.NewMemStorage("", false)
-	handler := &Handler{Storage: StorageHandler{Repo: memStorage}}
+	metricsService := service.NewMetricsService(memStorage)
+	handler := &Handler{
+		Storage: StorageHandler{Repo: memStorage},
+		Service: metricsService,
+	}
 
 	router := chi.NewRouter()
 	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
@@ -79,7 +84,11 @@ func TestUpdate(t *testing.T) {
 
 func TestGetMetric(t *testing.T) {
 	memStorage := storage.NewMemStorage("", false)
-	handler := &Handler{Storage: StorageHandler{Repo: memStorage}}
+	metricsService := service.NewMetricsService(memStorage)
+	handler := &Handler{
+		Storage: StorageHandler{Repo: memStorage},
+		Service: metricsService,
+	}
 
 	router := chi.NewRouter()
 	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
@@ -129,7 +138,11 @@ func TestGetMetric(t *testing.T) {
 
 func TestGetAllMetrics(t *testing.T) {
 	memStorage := storage.NewMemStorage("", false)
-	handler := &Handler{Storage: StorageHandler{Repo: memStorage}}
+	metricsService := service.NewMetricsService(memStorage)
+	handler := &Handler{
+		Storage: StorageHandler{Repo: memStorage},
+		Service: metricsService,
+	}
 
 	router := chi.NewRouter()
 	router.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))

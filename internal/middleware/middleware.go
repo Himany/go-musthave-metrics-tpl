@@ -8,8 +8,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/compress"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"go.uber.org/zap"
 )
 
 // CheckApplicationJSONContentType проверяет Content-Type и разрешает только application/json.
@@ -113,4 +116,38 @@ func CheckHash(key string, h http.HandlerFunc) http.HandlerFunc {
 
 		h(w, r)
 	}
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (lw *loggingResponseWriter) WriteHeader(code int) {
+	lw.statusCode = code
+	lw.ResponseWriter.WriteHeader(code)
+}
+
+// LoggingMiddleware логирует HTTP-запросы и ответы с захватом status code
+func LoggingMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		lw := &loggingResponseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+
+		h.ServeHTTP(lw, r)
+
+		duration := time.Since(start)
+
+		// Логируем запрос
+		logger.Log.Info("HTTP request",
+			zap.String("method", r.Method),
+			zap.String("uri", r.RequestURI),
+			zap.Int("status", lw.statusCode),
+			zap.Duration("duration", duration),
+		)
+	})
 }
