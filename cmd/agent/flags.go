@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/utils"
@@ -28,11 +29,29 @@ func parseConfig() (*config.Config, error) {
 	var flagKey = flag.String("k", "", "Key")
 	var flagRateLimit = flag.Int("l", defaultRateLimit, "maximum number of simultaneous requests to the server")
 	var flagCryptoKey = flag.String("crypto-key", "", "path to public key file for asymmetric encryption")
+	var flagConfigFile = flag.String("c", "", "path to JSON configuration file")
+	var flagConfigFileLong = flag.String("config", "", "path to JSON configuration file")
 
 	flag.Parse()
 
-	var cfg config.Config
-	err := env.ParseWithOptions(&cfg, env.Options{
+	configPath := ""
+	if *flagConfigFile != "" {
+		configPath = *flagConfigFile
+	} else if *flagConfigFileLong != "" {
+		configPath = *flagConfigFileLong
+	} else if envConfigPath := os.Getenv("CONFIG"); envConfigPath != "" {
+		configPath = envConfigPath
+	}
+
+	configFromFile, err := config.LoadAgentConfigFromFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config file: %w", err)
+	}
+
+	config.SetDefaultsForAgent(configFromFile)
+
+	var envConfig config.Config
+	err = env.ParseWithOptions(&envConfig, env.Options{
 		OnSet: func(tag string, value any, isDefault bool) {
 			envSet[tag] = true
 		},
@@ -41,14 +60,21 @@ func parseConfig() (*config.Config, error) {
 		return nil, fmt.Errorf("error parsing env: %w", err)
 	}
 
-	utils.SetStringIfUnset(envSet, "ADDRESS", &cfg.Server.Address, *flagRunAddr)
-	cfg.Server.Address = "http://" + cfg.Server.Address
-	utils.SetIntIfUnset(envSet, "REPORT_INTERVAL", &cfg.Agent.ReportInterval, *flagReportSeconds)
-	utils.SetIntIfUnset(envSet, "POLL_INTERVAL", &cfg.Agent.PollInterval, *flagPollSeconds)
-	utils.SetStringIfUnset(envSet, "LOG_LEVEL", &cfg.LogLevel, defaultLogLevel)
-	utils.SetStringIfUnset(envSet, "KEY", &cfg.Security.Key, *flagKey)
-	utils.SetIntIfUnset(envSet, "RATE_LIMIT", &cfg.Agent.RateLimit, *flagRateLimit)
-	utils.SetStringIfUnset(envSet, "CRYPTO_KEY", &cfg.Security.CryptoKey, *flagCryptoKey)
+	flagConfig := &config.Config{}
 
-	return &cfg, nil
+	utils.SetStringIfUnset(envSet, "ADDRESS", &flagConfig.Server.Address, *flagRunAddr)
+	utils.SetIntIfUnset(envSet, "REPORT_INTERVAL", &flagConfig.Agent.ReportInterval, *flagReportSeconds)
+	utils.SetIntIfUnset(envSet, "POLL_INTERVAL", &flagConfig.Agent.PollInterval, *flagPollSeconds)
+	utils.SetStringIfUnset(envSet, "LOG_LEVEL", &flagConfig.LogLevel, defaultLogLevel)
+	utils.SetStringIfUnset(envSet, "KEY", &flagConfig.Security.Key, *flagKey)
+	utils.SetIntIfUnset(envSet, "RATE_LIMIT", &flagConfig.Agent.RateLimit, *flagRateLimit)
+	utils.SetStringIfUnset(envSet, "CRYPTO_KEY", &flagConfig.Security.CryptoKey, *flagCryptoKey)
+
+	finalConfig := config.MergeConfigs(flagConfig, configFromFile)
+
+	if finalConfig.Server.Address != "" && finalConfig.Server.Address[:4] != "http" {
+		finalConfig.Server.Address = "http://" + finalConfig.Server.Address
+	}
+
+	return finalConfig, nil
 }
