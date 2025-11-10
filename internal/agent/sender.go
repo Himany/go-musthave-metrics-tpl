@@ -144,29 +144,40 @@ func (a *Agent) createRequest(metricType string, name string, delta *int64, valu
 }
 
 func (a *Agent) reportHandler() {
+	defer a.wg.Done()
+
 	ticker := time.NewTicker(time.Duration(a.ReportInterval) * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		a.Mutex.Lock()
+	for {
+		select {
+		case <-a.ctx.Done():
+			return
+		case <-ticker.C:
+			a.Mutex.Lock()
 
-		var batch []models.Metrics
-		for key, value := range a.Metrics {
-			val := value
+			var batch []models.Metrics
+			for key, value := range a.Metrics {
+				val := value
+				batch = append(batch, models.Metrics{
+					ID:    key,
+					MType: "gauge",
+					Value: &val,
+				})
+			}
 			batch = append(batch, models.Metrics{
-				ID:    key,
-				MType: "gauge",
-				Value: &val,
+				ID:    "PollCount",
+				MType: "counter",
+				Delta: &a.PollCount,
 			})
+
+			a.Mutex.Unlock()
+
+			select {
+			case <-a.ctx.Done():
+				return
+			case a.Tasks <- batch:
+			}
 		}
-		batch = append(batch, models.Metrics{
-			ID:    "PollCount",
-			MType: "counter",
-			Delta: &a.PollCount,
-		})
-
-		a.Mutex.Unlock()
-
-		a.Tasks <- batch
 	}
 }
