@@ -1,47 +1,52 @@
 package main
 
 import (
+	"fmt"
+	"log"
+
 	"go.uber.org/zap"
 
-	"github.com/Himany/go-musthave-metrics-tpl/handlers"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
-	"github.com/Himany/go-musthave-metrics-tpl/server"
-	"github.com/Himany/go-musthave-metrics-tpl/storage"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/server"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+)
+
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 func main() {
-	if err := parseFlags(); err != nil {
-		panic("failed to initialize flags: " + err.Error())
+	version := buildVersion
+	if version == "" {
+		version = "N/A"
+	}
+	date := buildDate
+	if date == "" {
+		date = "N/A"
+	}
+	commit := buildCommit
+	if commit == "" {
+		commit = "N/A"
+	}
+	fmt.Printf("Build version: %s\n", version)
+	fmt.Printf("Build date: %s\n", date)
+	fmt.Printf("Build commit: %s\n", commit)
+
+	cfg, err := parseFlags()
+	if err != nil {
+		log.Fatal("failed to initialize flags: " + err.Error())
 	}
 
-	if err := logger.Initialize(logLevel); err != nil {
-		panic("failed to initialize logger: " + err.Error())
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		log.Fatal("failed to initialize logger: " + err.Error())
 	}
 
-	logger.Log.Info("flags",
-		zap.String("runAddr", runAddr),
-		zap.String("fileStoragePath", fileStoragePath),
-		zap.Int("storeInterval", storeInterval),
-		zap.Bool("restore", restore),
-	)
-	memStorage := storage.NewMemStorage(fileStoragePath, (storeInterval == 0))
-	handler := &handlers.Handler{Repo: memStorage}
-	if restore && fileStoragePath != "" {
-		if err := memStorage.LoadData(); err != nil {
-			logger.Log.Fatal("failed to load data", zap.Error(err))
-		}
-	}
-	defer func() {
-		if err := memStorage.SaveData(); err != nil {
-			logger.Log.Error("failed to save data on shutdown", zap.Error(err))
-		}
-	}()
+	logger.Log.Info("flags", zap.Object("config", cfg))
 
-	if storeInterval != 0 {
-		go memStorage.SaveHandler(storeInterval)
-	}
-
-	if err := server.Run(handler, runAddr); err != nil {
+	if err := server.Run(cfg); err != nil {
 		logger.Log.Fatal("main", zap.Error(err))
 	}
 }

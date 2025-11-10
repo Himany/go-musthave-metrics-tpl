@@ -1,0 +1,205 @@
+package storage
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/models"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/retry"
+	"go.uber.org/zap"
+)
+
+type MemStorageData struct {
+	mu      sync.RWMutex
+	Gauge   map[string]float64
+	Counter map[string]int64
+
+	fileToSave string
+	isSyncSave bool
+}
+
+func NewMemStorage(path string, isSyncSave bool) *MemStorageData {
+	return &MemStorageData{
+		Gauge:   make(map[string]float64),
+		Counter: make(map[string]int64),
+
+		fileToSave: path,
+		isSyncSave: isSyncSave,
+	}
+}
+
+func (s *MemStorageData) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (s *MemStorageData) UpdateGauge(ctx context.Context, name string, value float64) {
+	s.mu.Lock()
+	s.Gauge[name] = value
+	s.mu.Unlock()
+	if s.isSyncSave {
+		if err := s.SaveData(); err != nil {
+			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
+		}
+	}
+}
+
+func (s *MemStorageData) UpdateCounter(ctx context.Context, name string, value int64) {
+	s.mu.Lock()
+	s.Counter[name] = value
+	s.mu.Unlock()
+	if s.isSyncSave {
+		if err := s.SaveData(); err != nil {
+			logger.Log.Error("MEM UpdateGauge", zap.Error(err))
+		}
+	}
+}
+
+func (s *MemStorageData) GetGauge(ctx context.Context, name string) (float64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	val, ok := s.Gauge[name]
+	return val, ok
+}
+
+func (s *MemStorageData) GetKeyGauge(ctx context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	keys := make([]string, 0, len(s.Gauge))
+	for key := range s.Gauge {
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+func (s *MemStorageData) GetCounter(ctx context.Context, name string) (int64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	val, ok := s.Counter[name]
+	return val, ok
+}
+
+func (s *MemStorageData) GetKeyCounter(ctx context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	keys := make([]string, 0, len(s.Counter))
+	for key := range s.Counter {
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+// files
+type saveFormat struct {
+	Gauge   map[string]float64 `json:"gauge"`
+	Counter map[string]int64   `json:"counter"`
+}
+
+func (s *MemStorageData) SaveData() error {
+	if s.fileToSave == "" {
+		return errors.New("MEM file is not specified")
+	}
+
+	return retry.WithRetry(func() error {
+		// создаем файл
+		file, err := os.OpenFile(s.fileToSave, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		// сериализуем структуру в JSON формат
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		data, err := json.Marshal(saveFormat{
+			Gauge:   s.Gauge,
+			Counter: s.Counter,
+		})
+		if err != nil {
+			return err
+		}
+
+		// сохраняем данные в файл
+		_, err = file.Write(data)
+		if err != nil {
+			return err
+		}
+
+		logger.Log.Info("MEM metrics saved successfully", zap.String("path", s.fileToSave))
+
+		return nil
+	}, isRetriableFileError, "SaveData")
+}
+
+func (s *MemStorageData) LoadData() error {
+	if s.fileToSave == "" {
+		return errors.New("MEM file is not specified")
+	}
+
+	return retry.WithRetry(func() error {
+		var save saveFormat
+
+		data, err := os.ReadFile(s.fileToSave)
+		if os.IsNotExist(err) {
+			logger.Log.Warn("MEM metrics file not found, skipping restore", zap.String("path", s.fileToSave))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if err := json.Unmarshal(data, &save); err != nil {
+			return err
+		}
+
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.Gauge = save.Gauge
+		s.Counter = save.Counter
+
+		logger.Log.Info("MEM metrics loaded successfully", zap.String("path", s.fileToSave))
+		return nil
+	}, isRetriableFileError, "LoadData")
+}
+
+func (s *MemStorageData) SaveHandler(interval int) {
+	for {
+		if err := s.SaveData(); err != nil {
+			logger.Log.Error("MEM SaveHandler", zap.Error(err))
+		}
+
+		time.Sleep(time.Duration(interval) * time.Second)
+	}
+}
+
+func (s *MemStorageData) BatchUpdate(ctx context.Context, metrics []models.Metrics) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, m := range metrics {
+		switch m.MType {
+		case "gauge":
+			if m.Value == nil {
+				continue
+			}
+			s.Gauge[m.ID] = *m.Value
+
+		case "counter":
+			if m.Delta == nil {
+				continue
+			}
+			s.Counter[m.ID] += *m.Delta
+		default:
+			logger.Log.Warn("BatchUpdate unknown metric type", zap.String("type", m.MType))
+		}
+	}
+	return nil
+}
+
+func isRetriableFileError(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "temporarily unavailable") || strings.Contains(err.Error(), "resource busy") || strings.Contains(err.Error(), "locked"))
+}

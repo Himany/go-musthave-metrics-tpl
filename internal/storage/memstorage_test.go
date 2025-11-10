@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -26,10 +27,10 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("GAUGE[%s]: %v -> %v", tc.key, tc.value, tc.expectedValue), func(t *testing.T) {
 			if tc.addValue {
-				repo.UpdateGauge(tc.key, tc.value)
+				repo.UpdateGauge(context.Background(), tc.key, tc.value)
 			}
 
-			resultValue, isOk := repo.GetGauge(tc.key)
+			resultValue, isOk := repo.GetGauge(context.Background(), tc.key)
 			if isOk {
 				assert.Equal(t, tc.expectedValue, resultValue, "Ошибка значения")
 			}
@@ -57,10 +58,10 @@ func TestMemStorage_UpdateCounter(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("COUNTER[%s]: %v -> %v", tc.key, tc.value, tc.expectedValue), func(t *testing.T) {
 			if tc.addValue {
-				repo.UpdateCounter(tc.key, tc.value)
+				repo.UpdateCounter(context.Background(), tc.key, tc.value)
 			}
 
-			resultValue, isOk := repo.GetCounter(tc.key)
+			resultValue, isOk := repo.GetCounter(context.Background(), tc.key)
 			if isOk {
 				assert.Equal(t, tc.expectedValue, resultValue, "Ошибка значения")
 			}
