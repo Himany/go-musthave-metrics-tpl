@@ -27,6 +27,7 @@ func parseConfig() (*config.Config, error) {
 	//var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagKey = flag.String("k", "", "Key")
 	var flagRateLimit = flag.Int("l", defaultRateLimit, "maximum number of simultaneous requests to the server")
+	var flagCryptoKey = flag.String("crypto-key", "", "path to public key file for asymmetric encryption")
 
 	flag.Parse()
 
@@ -47,6 +48,7 @@ func parseConfig() (*config.Config, error) {
 	utils.SetStringIfUnset(envSet, "LOG_LEVEL", &cfg.LogLevel, defaultLogLevel)
 	utils.SetStringIfUnset(envSet, "KEY", &cfg.Security.Key, *flagKey)
 	utils.SetIntIfUnset(envSet, "RATE_LIMIT", &cfg.Agent.RateLimit, *flagRateLimit)
+	utils.SetStringIfUnset(envSet, "CRYPTO_KEY", &cfg.Security.CryptoKey, *flagCryptoKey)
 
 	return &cfg, nil
 }

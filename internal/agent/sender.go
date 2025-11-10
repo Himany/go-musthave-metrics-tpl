@@ -66,9 +66,14 @@ func (a *Agent) createBatchRequest(metrics []models.Metrics) error {
 		return err
 	}
 
-	hash := bodySignature(jsonData, a.Key)
+	encryptedData, err := a.Encryptor.Encrypt(jsonData)
+	if err != nil {
+		return err
+	}
 
-	body, err := compressBody(jsonData)
+	hash := bodySignature(encryptedData, a.Key)
+
+	body, err := compressBody(encryptedData)
 	if err != nil {
 		return err
 	}
@@ -104,9 +109,14 @@ func (a *Agent) createRequest(metricType string, name string, delta *int64, valu
 		return err
 	}
 
-	hash := bodySignature(jsonData, a.Key)
+	encryptedData, err := a.Encryptor.Encrypt(jsonData)
+	if err != nil {
+		return err
+	}
 
-	body, err := compressBody(jsonData)
+	hash := bodySignature(encryptedData, a.Key)
+
+	body, err := compressBody(encryptedData)
 	if err != nil {
 		return err
 	}

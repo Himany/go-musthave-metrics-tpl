@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/compress"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/crypto"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"go.uber.org/zap"
 )
@@ -150,4 +151,36 @@ func LoggingMiddleware(h http.Handler) http.Handler {
 			zap.Duration("duration", duration),
 		)
 	})
+}
+
+// DecryptBody дешифрует тело запроса если включено шифрование
+func DecryptBody(decryptor *crypto.RSAEncryptor) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if decryptor == nil || !decryptor.IsEnabled() {
+				h.ServeHTTP(w, r)
+				return
+			}
+
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			r.Body.Close()
+
+			// Дешифруем данные
+			decryptedBody, err := decryptor.Decrypt(body)
+			if err != nil {
+				logger.Log.Error("Failed to decrypt body", zap.Error(err))
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			// Заменяем тело запроса дешифрованными данными
+			r.Body = io.NopCloser(bytes.NewReader(decryptedBody))
+
+			h.ServeHTTP(w, r)
+		})
+	}
 }
