@@ -6,6 +6,7 @@ import (
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/audit"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/crypto"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/server/handlers"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/service"
@@ -66,7 +67,13 @@ func Run(cfg *config.Config) error {
 	}
 
 	startPprof(cfg.Server.PprofAddr)
-	if err := Router(handler, cfg.Server.Address, cfg.Security.Key); err != nil {
+
+	decryptor, err := crypto.NewRSAEncryptorFromPrivateKey(cfg.Security.CryptoKey)
+	if err != nil {
+		return err
+	}
+
+	if err := Router(handler, cfg.Server.Address, cfg.Security.Key, decryptor); err != nil {
 		return err
 	}
 

@@ -35,6 +35,7 @@ func parseFlags() (*config.Config, error) {
 	var flagAuditFile = flag.String("audit-file", defaultAuditFile, "audit file")
 	var flagAuditURL = flag.String("audit-url", defaultAuditURL, "audit URL")
 	var flagPprofAddr = flag.String("pprof-addr", defaultPprofAddr, "enable pprof on the provided address (empty to disable)")
+	var flagCryptoKey = flag.String("crypto-key", "", "path to private key file for asymmetric decryption")
 
 	flag.Parse()
 
@@ -58,6 +59,7 @@ func parseFlags() (*config.Config, error) {
 	utils.SetStringIfUnset(envSet, "AUDIT_FILE", &cfg.Audit.File, *flagAuditFile)
 	utils.SetStringIfUnset(envSet, "AUDIT_URL", &cfg.Audit.URL, *flagAuditURL)
 	utils.SetStringIfUnset(envSet, "PPROF_ADDR", &cfg.Server.PprofAddr, *flagPprofAddr)
+	utils.SetStringIfUnset(envSet, "CRYPTO_KEY", &cfg.Security.CryptoKey, *flagCryptoKey)
 
 	return &cfg, nil
 }

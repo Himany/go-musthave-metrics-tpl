@@ -29,7 +29,8 @@ type AgentConfig struct {
 
 // SecurityConfig содержит настройки безопасности
 type SecurityConfig struct {
-	Key string `env:"KEY"`
+	Key       string `env:"KEY"`
+	CryptoKey string `env:"CRYPTO_KEY"`
 }
 
 // AuditConfig содержит настройки аудита
@@ -61,6 +62,7 @@ func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("restore", c.Server.Restore)
 	enc.AddString("dataBaseDSN", c.Database.DSN)
 	enc.AddString("key", c.Security.Key)
+	enc.AddString("cryptoKey", c.Security.CryptoKey)
 	enc.AddString("pprofAddr", c.Server.PprofAddr)
 	enc.AddString("auditFile", c.Audit.File)
 	enc.AddString("auditURL", c.Audit.URL)
