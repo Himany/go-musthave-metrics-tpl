@@ -154,7 +154,7 @@ func (a *Agent) reportHandler() {
 		case <-a.ctx.Done():
 			return
 		case <-ticker.C:
-			a.Mutex.Lock()
+			a.mutex.Lock()
 
 			var batch []models.Metrics
 			for key, value := range a.Metrics {
@@ -171,7 +171,7 @@ func (a *Agent) reportHandler() {
 				Delta: &a.PollCount,
 			})
 
-			a.Mutex.Unlock()
+			a.mutex.Unlock()
 
 			select {
 			case <-a.ctx.Done():

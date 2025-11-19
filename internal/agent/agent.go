@@ -2,10 +2,7 @@ package agent
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
@@ -24,74 +21,55 @@ type Agent struct {
 	Client         *resty.Client
 	PollCount      int64
 	Metrics        map[string]float64
-	Mutex          sync.Mutex
+	mutex          sync.Mutex
 	Key            string
 	RateLimit      int
 	Tasks          chan []models.Metrics
 	Encryptor      *crypto.RSAEncryptor
 
 	// Поля для graceful shutdown
-	shutdownChan chan struct{}
-	wg           sync.WaitGroup
-	ctx          context.Context
-	cancel       context.CancelFunc
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-func createAgent(url string, reportInterval int, pollInterval int, key string, rateLimit int, encryptor *crypto.RSAEncryptor) *Agent {
+func CreateAgent(cfg *config.Config) (*Agent, error) {
+	encryptor, err := crypto.NewRSAEncryptorFromPublicKey(cfg.Security.CryptoKey)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return (&Agent{
-		URL:            url,
-		ReportInterval: reportInterval,
-		PollInterval:   pollInterval,
+	return &Agent{
+		URL:            cfg.Server.Address,
+		ReportInterval: cfg.Agent.ReportInterval,
+		PollInterval:   cfg.Agent.PollInterval,
 		Client:         resty.New(),
 		PollCount:      0,
 		Metrics:        make(map[string]float64),
-		Key:            key,
-		RateLimit:      rateLimit,
-		Tasks:          make(chan []models.Metrics, rateLimit*2),
+		Key:            cfg.Security.Key,
+		RateLimit:      cfg.Agent.RateLimit,
+		Tasks:          make(chan []models.Metrics, cfg.Agent.RateLimit*2),
 		Encryptor:      encryptor,
-		shutdownChan:   make(chan struct{}),
 		ctx:            ctx,
 		cancel:         cancel,
-	})
+	}, nil
 }
 
-func Run(cfg *config.Config) error {
-	encryptor, err := crypto.NewRSAEncryptorFromPublicKey(cfg.Security.CryptoKey)
-	if err != nil {
-		return err
-	}
+func (a *Agent) Start() error {
+	a.CreateWorkers()
 
-	ag := createAgent(cfg.Server.Address, cfg.Agent.ReportInterval, cfg.Agent.PollInterval, cfg.Security.Key, cfg.Agent.RateLimit, encryptor)
+	a.wg.Add(3)
+	go a.collector()
+	go a.collectorAdv()
+	go a.reportHandler()
 
-	ag.CreateWorkers()
-
-	ag.wg.Add(3)
-	go ag.collector()
-	go ag.collectorAdv()
-	go ag.reportHandler()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-
-	logger.Log.Info("Agent started successfully")
-
-	select {
-	case sig := <-sigChan:
-		logger.Log.Info("Received shutdown signal", zap.String("signal", sig.String()))
-		ag.gracefulShutdown()
-	case <-ag.shutdownChan:
-		logger.Log.Info("Shutdown requested")
-	}
-
-	logger.Log.Info("Agent stopped")
 	return nil
 }
 
-// gracefulShutdown выполняет корректное завершение работы агента
-func (a *Agent) gracefulShutdown() {
-	logger.Log.Info("Starting graceful shutdown...")
+func (a *Agent) Stop() {
+	logger.Log.Info("Stopping agent...")
 
 	a.cancel()
 
@@ -103,22 +81,21 @@ func (a *Agent) gracefulShutdown() {
 
 	select {
 	case <-done:
-		logger.Log.Info("All goroutines stopped")
+		logger.Log.Info("All agent goroutines stopped")
 	case <-time.After(10 * time.Second):
-		logger.Log.Warn("Timeout waiting for goroutines to stop")
+		logger.Log.Warn("Timeout waiting for agent goroutines to stop")
 	}
 
 	a.sendFinalMetrics()
 
-	close(a.shutdownChan)
+	logger.Log.Info("Agent stopped")
 }
 
-// sendFinalMetrics отправляет последние собранные метрики
 func (a *Agent) sendFinalMetrics() {
 	logger.Log.Info("Sending final metrics...")
 
-	a.Mutex.Lock()
-	defer a.Mutex.Unlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 
 	if len(a.Metrics) == 0 && a.PollCount == 0 {
 		logger.Log.Info("No metrics to send")

@@ -21,13 +21,13 @@ func (a *Agent) collectorAdv() {
 			vmStat, _ := mem.VirtualMemory()
 			cpuPercents, _ := cpu.Percent(0, false)
 
-			a.Mutex.Lock()
+			a.mutex.Lock()
 			a.Metrics["TotalMemory"] = float64(vmStat.Total)
 			a.Metrics["FreeMemory"] = float64(vmStat.Free)
 			if len(cpuPercents) > 0 {
 				a.Metrics["CPUutilization1"] = cpuPercents[0]
 			}
-			a.Mutex.Unlock()
+			a.mutex.Unlock()
 		}
 	}
 }

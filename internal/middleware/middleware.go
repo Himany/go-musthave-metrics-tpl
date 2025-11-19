@@ -172,7 +172,7 @@ func DecryptBody(decryptor *crypto.RSAEncryptor) func(http.Handler) http.Handler
 			// Дешифруем данные
 			decryptedBody, err := decryptor.Decrypt(body)
 			if err != nil {
-				logger.Log.Error("Failed to decrypt body", zap.Error(err))
+				logger.Log.Debug("Failed to decrypt body", zap.Error(err))
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}

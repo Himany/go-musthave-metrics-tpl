@@ -20,7 +20,7 @@ func (a *Agent) collector() {
 		case <-ticker.C:
 			runtime.ReadMemStats(&s)
 
-			a.Mutex.Lock()
+			a.mutex.Lock()
 			a.Metrics["Alloc"] = float64(s.Alloc)
 			a.Metrics["BuckHashSys"] = float64(s.BuckHashSys)
 			a.Metrics["GCCPUFraction"] = s.GCCPUFraction
@@ -51,7 +51,7 @@ func (a *Agent) collector() {
 			a.Metrics["RandomValue"] = rand.Float64()
 
 			a.PollCount++
-			a.Mutex.Unlock()
+			a.mutex.Unlock()
 		}
 	}
 }

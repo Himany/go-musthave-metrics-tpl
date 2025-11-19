@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -69,8 +68,6 @@ func Run(cfg *config.Config) error {
 		Handler: r,
 	}
 
-	shutdownChan := make(chan struct{})
-
 	go func() {
 		logger.Log.Info("Starting HTTP server", zap.String("address", cfg.Server.Address))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -78,16 +75,14 @@ func Run(cfg *config.Config) error {
 		}
 	}()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	defer stop()
 
-	go func() {
-		sig := <-sigChan
-		logger.Log.Info("Received shutdown signal", zap.String("signal", sig.String()))
-		close(shutdownChan)
-	}()
+	<-ctx.Done()
 
-	<-shutdownChan
+	stop()
+
+	logger.Log.Info("Received shutdown signal, starting graceful shutdown...")
 
 	// Выполняем graceful shutdown
 	return gracefulShutdown(server, memStorage, db)
