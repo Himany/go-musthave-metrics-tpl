@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -179,6 +180,49 @@ func DecryptBody(decryptor *crypto.RSAEncryptor) func(http.Handler) http.Handler
 
 			// Заменяем тело запроса дешифрованными данными
 			r.Body = io.NopCloser(bytes.NewReader(decryptedBody))
+
+			h.ServeHTTP(w, r)
+		})
+	}
+}
+
+// CheckTrustedSubnet проверяет, что IP-адрес из заголовка X-Real-IP входит в доверенную подсеть
+func CheckTrustedSubnet(trustedSubnet string) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if trustedSubnet == "" {
+				h.ServeHTTP(w, r)
+				return
+			}
+
+			realIP := r.Header.Get("X-Real-IP")
+			if realIP == "" {
+				logger.Log.Warn("Missing X-Real-IP header")
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+
+			_, trustedNet, err := net.ParseCIDR(trustedSubnet)
+			if err != nil {
+				logger.Log.Error("Failed to parse trusted subnet", zap.String("subnet", trustedSubnet), zap.Error(err))
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			clientIP := net.ParseIP(realIP)
+			if clientIP == nil {
+				logger.Log.Warn("Invalid X-Real-IP format", zap.String("ip", realIP))
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+
+			if !trustedNet.Contains(clientIP) {
+				logger.Log.Warn("IP address not in trusted subnet",
+					zap.String("ip", realIP),
+					zap.String("trusted_subnet", trustedSubnet))
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 
 			h.ServeHTTP(w, r)
 		})

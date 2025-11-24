@@ -16,9 +16,11 @@ import (
 // Agent собирает системные метрики и отправляет их на сервер.
 type Agent struct {
 	URL            string
+	GRPCAddress    string
 	ReportInterval int
 	PollInterval   int
 	Client         *resty.Client
+	GRPCClient     *GRPCClient
 	PollCount      int64
 	Metrics        map[string]float64
 	mutex          sync.Mutex
@@ -41,8 +43,9 @@ func CreateAgent(cfg *config.Config) (*Agent, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &Agent{
+	agent := &Agent{
 		URL:            cfg.Server.Address,
+		GRPCAddress:    cfg.Server.GRPCAddress,
 		ReportInterval: cfg.Agent.ReportInterval,
 		PollInterval:   cfg.Agent.PollInterval,
 		Client:         resty.New(),
@@ -54,7 +57,19 @@ func CreateAgent(cfg *config.Config) (*Agent, error) {
 		Encryptor:      encryptor,
 		ctx:            ctx,
 		cancel:         cancel,
-	}, nil
+	}
+
+	if cfg.Server.GRPCAddress != "" {
+		grpcClient, err := NewGRPCClient(cfg.Server.GRPCAddress, logger.Log)
+		if err != nil {
+			logger.Log.Warn("Failed to create gRPC client, falling back to HTTP", zap.Error(err))
+		} else {
+			agent.GRPCClient = grpcClient
+			logger.Log.Info("gRPC client created successfully", zap.String("address", cfg.Server.GRPCAddress))
+		}
+	}
+
+	return agent, nil
 }
 
 func (a *Agent) Start() error {
@@ -87,6 +102,14 @@ func (a *Agent) Stop() {
 	}
 
 	a.sendFinalMetrics()
+
+	if a.GRPCClient != nil {
+		if err := a.GRPCClient.Close(); err != nil {
+			logger.Log.Error("Failed to close gRPC client", zap.Error(err))
+		} else {
+			logger.Log.Info("gRPC client closed successfully")
+		}
+	}
 
 	logger.Log.Info("Agent stopped")
 }
@@ -121,7 +144,19 @@ func (a *Agent) sendFinalMetrics() {
 	}
 
 	if len(batch) > 0 {
-		err := a.createBatchRequest(batch)
+		var err error
+		if a.GRPCClient != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			err = a.GRPCClient.SendMetrics(ctx, batch)
+			if err != nil {
+				logger.Log.Warn("Failed to send final metrics via gRPC, falling back to HTTP", zap.Error(err))
+				err = a.createBatchRequest(batch)
+			}
+		} else {
+			err = a.createBatchRequest(batch)
+		}
+
 		if err != nil {
 			logger.Log.Error("Failed to send final metrics", zap.Error(err))
 		} else {

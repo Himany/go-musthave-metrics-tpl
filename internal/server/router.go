@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func CreateRouter(handler *handlers.Handler, key string, decryptor *crypto.RSAEncryptor) http.Handler {
+func CreateRouter(handler *handlers.Handler, key string, decryptor *crypto.RSAEncryptor, trustedSubnet string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Get("/", middleware.CheckPlainTextContentType(handler.GetAllMetrics))
@@ -18,13 +18,21 @@ func CreateRouter(handler *handlers.Handler, key string, decryptor *crypto.RSAEn
 	r.Get("/value/{type}/{name}", middleware.CheckPlainTextContentType(handler.GetMetricQuery))
 	r.Post("/value/", middleware.CheckApplicationJSONContentType(handler.GetMetricJSON))
 	r.Post("/update/{type}/{name}/{value}", middleware.CheckPlainTextContentType(handler.UpdateHandlerQuery))
-	r.With(middleware.DecryptBody(decryptor)).Post("/update/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.UpdateHandlerJSON)))
-	r.With(middleware.DecryptBody(decryptor)).Post("/updates/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.BatchUpdateJSON)))
+
+	r.With(
+		middleware.CheckTrustedSubnet(trustedSubnet),
+		middleware.DecryptBody(decryptor),
+	).Post("/update/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.UpdateHandlerJSON)))
+
+	r.With(
+		middleware.CheckTrustedSubnet(trustedSubnet),
+		middleware.DecryptBody(decryptor),
+	).Post("/updates/", middleware.CheckApplicationJSONContentType(middleware.CheckHash(key, handler.BatchUpdateJSON)))
 
 	return middleware.LoggingMiddleware(logger.RequestLogger(middleware.Gzip(r)))
 }
 
 func Router(handler *handlers.Handler, runAddr string, key string, decryptor *crypto.RSAEncryptor) error {
-	router := CreateRouter(handler, key, decryptor)
+	router := CreateRouter(handler, key, decryptor, "")
 	return http.ListenAndServe(runAddr, router)
 }

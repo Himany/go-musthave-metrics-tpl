@@ -12,9 +12,11 @@ import (
 // ServerConfig содержит настройки сервера
 type ServerConfig struct {
 	Address       string `env:"ADDRESS"`
+	GRPCAddress   string `env:"GRPC_ADDRESS"`
 	StoreInterval int    `env:"STORE_INTERVAL"`
 	Restore       bool   `env:"RESTORE"`
 	PprofAddr     string `env:"PPROF_ADDR"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET"`
 }
 
 // DatabaseConfig содержит настройки базы данных
@@ -60,6 +62,7 @@ type Config struct {
 
 func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("address", c.Server.Address)
+	enc.AddString("grpcAddress", c.Server.GRPCAddress)
 	enc.AddString("logLevel", c.LogLevel)
 	enc.AddInt("reportInterval", c.Agent.ReportInterval)
 	enc.AddInt("pollInterval", c.Agent.PollInterval)
@@ -71,6 +74,7 @@ func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("key", c.Security.Key)
 	enc.AddString("cryptoKey", c.Security.CryptoKey)
 	enc.AddString("pprofAddr", c.Server.PprofAddr)
+	enc.AddString("trustedSubnet", c.Server.TrustedSubnet)
 	enc.AddString("auditFile", c.Audit.File)
 	enc.AddString("auditURL", c.Audit.URL)
 	return nil
@@ -79,16 +83,19 @@ func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 // ServerJSONConfig представляет JSON конфигурацию сервера
 type ServerJSONConfig struct {
 	Address       string `json:"address"`
+	GRPCAddress   string `json:"grpc_address"`
 	Restore       bool   `json:"restore"`
 	StoreInterval string `json:"store_interval"`
 	StoreFile     string `json:"store_file"`
 	DatabaseDSN   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 // AgentJSONConfig представляет JSON конфигурацию агента
 type AgentJSONConfig struct {
 	Address        string `json:"address"`
+	GRPCAddress    string `json:"grpc_address"`
 	ReportInterval string `json:"report_interval"`
 	PollInterval   string `json:"poll_interval"`
 	CryptoKey      string `json:"crypto_key"`
@@ -114,6 +121,10 @@ func LoadServerConfigFromFile(filepath string) (*Config, error) {
 
 	if jsonConfig.Address != "" {
 		config.Server.Address = jsonConfig.Address
+	}
+
+	if jsonConfig.GRPCAddress != "" {
+		config.Server.GRPCAddress = jsonConfig.GRPCAddress
 	}
 
 	config.Server.Restore = jsonConfig.Restore
@@ -163,6 +174,10 @@ func LoadAgentConfigFromFile(filepath string) (*Config, error) {
 		config.Server.Address = jsonConfig.Address
 	}
 
+	if jsonConfig.GRPCAddress != "" {
+		config.Server.GRPCAddress = jsonConfig.GRPCAddress
+	}
+
 	if jsonConfig.ReportInterval != "" {
 		duration, err := time.ParseDuration(jsonConfig.ReportInterval)
 		if err != nil {
@@ -198,11 +213,17 @@ func MergeConfigs(higher, lower *Config) *Config {
 	if higher.Server.Address != "" {
 		result.Server.Address = higher.Server.Address
 	}
+	if higher.Server.GRPCAddress != "" {
+		result.Server.GRPCAddress = higher.Server.GRPCAddress
+	}
 	if higher.Server.StoreInterval != 0 {
 		result.Server.StoreInterval = higher.Server.StoreInterval
 	}
 	if higher.Server.PprofAddr != "" {
 		result.Server.PprofAddr = higher.Server.PprofAddr
+	}
+	if higher.Server.TrustedSubnet != "" {
+		result.Server.TrustedSubnet = higher.Server.TrustedSubnet
 	}
 
 	result.Server.Restore = higher.Server.Restore
@@ -252,6 +273,9 @@ func SetDefaultsForServer(cfg *Config) {
 	if cfg.Server.Address == "" {
 		cfg.Server.Address = "localhost:8080"
 	}
+	if cfg.Server.GRPCAddress == "" {
+		cfg.Server.GRPCAddress = "localhost:9090"
+	}
 	if cfg.Server.StoreInterval == 0 {
 		cfg.Server.StoreInterval = 300
 	}
@@ -267,6 +291,9 @@ func SetDefaultsForServer(cfg *Config) {
 func SetDefaultsForAgent(cfg *Config) {
 	if cfg.Server.Address == "" {
 		cfg.Server.Address = "localhost:8080"
+	}
+	if cfg.Server.GRPCAddress == "" {
+		cfg.Server.GRPCAddress = "localhost:9090"
 	}
 	if cfg.Agent.ReportInterval == 0 {
 		cfg.Agent.ReportInterval = 10
