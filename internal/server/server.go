@@ -61,7 +61,7 @@ func Run(cfg *config.Config) error {
 		return err
 	}
 
-	r := CreateRouter(handler, cfg.Security.Key, decryptor)
+	r := CreateRouter(handler, cfg.Security.Key, decryptor, cfg.Server.TrustedSubnet)
 
 	server := &http.Server{
 		Addr:    cfg.Server.Address,

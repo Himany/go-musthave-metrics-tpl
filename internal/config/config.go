@@ -15,6 +15,7 @@ type ServerConfig struct {
 	StoreInterval int    `env:"STORE_INTERVAL"`
 	Restore       bool   `env:"RESTORE"`
 	PprofAddr     string `env:"PPROF_ADDR"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET"`
 }
 
 // DatabaseConfig содержит настройки базы данных
@@ -71,6 +72,7 @@ func (c *Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("key", c.Security.Key)
 	enc.AddString("cryptoKey", c.Security.CryptoKey)
 	enc.AddString("pprofAddr", c.Server.PprofAddr)
+	enc.AddString("trustedSubnet", c.Server.TrustedSubnet)
 	enc.AddString("auditFile", c.Audit.File)
 	enc.AddString("auditURL", c.Audit.URL)
 	return nil
@@ -84,6 +86,7 @@ type ServerJSONConfig struct {
 	StoreFile     string `json:"store_file"`
 	DatabaseDSN   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
 }
 
 // AgentJSONConfig представляет JSON конфигурацию агента
@@ -203,6 +206,9 @@ func MergeConfigs(higher, lower *Config) *Config {
 	}
 	if higher.Server.PprofAddr != "" {
 		result.Server.PprofAddr = higher.Server.PprofAddr
+	}
+	if higher.Server.TrustedSubnet != "" {
+		result.Server.TrustedSubnet = higher.Server.TrustedSubnet
 	}
 
 	result.Server.Restore = higher.Server.Restore

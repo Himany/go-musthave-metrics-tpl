@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"time"
 
@@ -16,6 +17,17 @@ import (
 
 var ErrEmptyMetrics = errors.New("empty metrics")
 
+func getOutboundIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
+}
+
 func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*resty.Response, time.Duration, error) {
 	start := time.Now()
 	var lastResp *resty.Response
@@ -24,6 +36,7 @@ func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*r
 		request := a.Client.R().
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
+			SetHeader("X-Real-IP", getOutboundIP()).
 			SetBody(body)
 
 		if hash != nil {
