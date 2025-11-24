@@ -15,6 +15,7 @@ type envTracker map[string]bool
 
 // Стандратные значения
 const defaultRunAddr = "localhost:8080"
+const defaultGRPCAddr = "localhost:9090"
 const defaultLogLevel = "info"
 const defaultStoreInterval = 300
 const defaultFileStoragePath = "metrics_data"
@@ -28,6 +29,7 @@ const defaultTrustedSubnet = ""
 func parseFlags() (*config.Config, error) {
 	envSet := make(envTracker)
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
+	var flagGRPCAddr = flag.String("grpc", defaultGRPCAddr, "address and port to run gRPC server")
 	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagStoreInterval = flag.Int("i", defaultStoreInterval, "time interval in seconds after which the current server readings are saved to disk")
 	var flagFileStoragePath = flag.String("f", defaultFileStoragePath, "the path to the file where the current values are saved")
@@ -74,6 +76,7 @@ func parseFlags() (*config.Config, error) {
 	flagConfig := &config.Config{}
 
 	utils.SetStringIfUnset(envSet, "ADDRESS", &flagConfig.Server.Address, *flagRunAddr)
+	utils.SetStringIfUnset(envSet, "GRPC_ADDRESS", &flagConfig.Server.GRPCAddress, *flagGRPCAddr)
 	utils.SetStringIfUnset(envSet, "LOGLEVEL", &flagConfig.LogLevel, *flagLogLevel)
 	utils.SetIntIfUnset(envSet, "STORE_INTERVAL", &flagConfig.Server.StoreInterval, *flagStoreInterval)
 	utils.SetStringIfUnset(envSet, "FILE_STORAGE_PATH", &flagConfig.Storage.FileStoragePath, *flagFileStoragePath)
