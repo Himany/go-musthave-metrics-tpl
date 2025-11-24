@@ -8,18 +8,26 @@ import (
 )
 
 func (a *Agent) collectorAdv() {
+	defer a.wg.Done()
+
+	ticker := time.NewTicker(time.Duration(a.PollInterval) * time.Second)
+	defer ticker.Stop()
+
 	for {
-		vmStat, _ := mem.VirtualMemory()
-		cpuPercents, _ := cpu.Percent(0, false)
+		select {
+		case <-a.ctx.Done():
+			return
+		case <-ticker.C:
+			vmStat, _ := mem.VirtualMemory()
+			cpuPercents, _ := cpu.Percent(0, false)
 
-		a.Mutex.Lock()
-		a.Metrics["TotalMemory"] = float64(vmStat.Total)
-		a.Metrics["FreeMemory"] = float64(vmStat.Free)
-		if len(cpuPercents) > 0 {
-			a.Metrics["CPUutilization1"] = cpuPercents[0]
+			a.mutex.Lock()
+			a.Metrics["TotalMemory"] = float64(vmStat.Total)
+			a.Metrics["FreeMemory"] = float64(vmStat.Free)
+			if len(cpuPercents) > 0 {
+				a.Metrics["CPUutilization1"] = cpuPercents[0]
+			}
+			a.mutex.Unlock()
 		}
-		a.Mutex.Unlock()
-
-		time.Sleep(time.Duration(a.PollInterval) * time.Second)
 	}
 }
