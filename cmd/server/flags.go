@@ -23,6 +23,7 @@ const defaultDataBaseDSN = ""
 const defaultAuditFile = ""
 const defaultAuditURL = ""
 const defaultPprofAddr = ""
+const defaultTrustedSubnet = ""
 
 func parseFlags() (*config.Config, error) {
 	envSet := make(envTracker)
@@ -38,6 +39,7 @@ func parseFlags() (*config.Config, error) {
 	var flagAuditURL = flag.String("audit-url", defaultAuditURL, "audit URL")
 	var flagPprofAddr = flag.String("pprof-addr", defaultPprofAddr, "enable pprof on the provided address (empty to disable)")
 	var flagCryptoKey = flag.String("crypto-key", "", "path to private key file for asymmetric decryption")
+	var flagTrustedSubnet = flag.String("t", defaultTrustedSubnet, "trusted subnet in CIDR notation")
 	var flagConfigFile = flag.String("c", "", "path to JSON configuration file")
 	var flagConfigFileLong = flag.String("config", "", "path to JSON configuration file")
 
@@ -82,6 +84,7 @@ func parseFlags() (*config.Config, error) {
 	utils.SetStringIfUnset(envSet, "AUDIT_URL", &flagConfig.Audit.URL, *flagAuditURL)
 	utils.SetStringIfUnset(envSet, "PPROF_ADDR", &flagConfig.Server.PprofAddr, *flagPprofAddr)
 	utils.SetStringIfUnset(envSet, "CRYPTO_KEY", &flagConfig.Security.CryptoKey, *flagCryptoKey)
+	utils.SetStringIfUnset(envSet, "TRUSTED_SUBNET", &flagConfig.Server.TrustedSubnet, *flagTrustedSubnet)
 
 	finalConfig := config.MergeConfigs(flagConfig, configFromFile)
 
