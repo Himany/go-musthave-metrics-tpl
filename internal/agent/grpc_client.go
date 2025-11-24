@@ -27,9 +27,8 @@ func NewGRPCClient(address string, logger *zap.Logger) (*GRPCClient, error) {
 	address = strings.TrimPrefix(address, "http://")
 	address = strings.TrimPrefix(address, "https://")
 
-	conn, err := grpc.Dial(address,
+	conn, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithTimeout(10*time.Second),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to gRPC server at %s: %w", address, err)
@@ -106,6 +105,10 @@ func (c *GRPCClient) SendMetrics(ctx context.Context, metrics []models.Metrics) 
 	c.logger.Info("Sending metrics via gRPC",
 		zap.Int("count", len(pbMetrics)),
 		zap.String("client_ip", localIP))
+
+	// Устанавливаем таймаут для gRPC запроса
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	_, err := c.client.UpdateMetrics(ctx, req)
 	if err != nil {
