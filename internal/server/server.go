@@ -8,10 +8,13 @@ import (
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"github.com/Himany/go-musthave-metrics-tpl/internal/config"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/crypto"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/logger"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/server/handlers"
+	"github.com/Himany/go-musthave-metrics-tpl/internal/service"
 	"github.com/Himany/go-musthave-metrics-tpl/internal/storage"
 	"go.uber.org/zap"
 )
@@ -49,8 +52,12 @@ func Run(cfg *config.Config) error {
 		repo = memStorage
 	}
 
+	// Создаем сервисный слой
+	metricsService := service.NewMetricsService(repo)
+
 	handler := &handlers.Handler{
 		Storage: handlers.StorageHandler{Repo: repo},
+		Service: metricsService,
 		Signer:  handlers.Signer{Key: cfg.Security.Key},
 	}
 
@@ -61,7 +68,17 @@ func Run(cfg *config.Config) error {
 		return err
 	}
 
-	r := CreateRouter(handler, cfg.Security.Key, decryptor)
+	// Запускаем gRPC сервер, если адрес настроен
+	var grpcServer *grpc.Server
+	if cfg.Server.GRPCAddress != "" {
+		grpcServer, err = StartGRPCServer(cfg.Server.GRPCAddress, repo, logger.Log, cfg.Server.TrustedSubnet)
+		if err != nil {
+			logger.Log.Error("Failed to start gRPC server", zap.Error(err))
+			return err
+		}
+	}
+
+	r := CreateRouter(handler, cfg.Security.Key, decryptor, cfg.Server.TrustedSubnet)
 
 	server := &http.Server{
 		Addr:    cfg.Server.Address,
@@ -85,11 +102,11 @@ func Run(cfg *config.Config) error {
 	logger.Log.Info("Received shutdown signal, starting graceful shutdown...")
 
 	// Выполняем graceful shutdown
-	return gracefulShutdown(server, memStorage, db)
+	return gracefulShutdown(server, grpcServer, memStorage, db)
 }
 
 // gracefulShutdown выполняет корректное завершение работы сервера
-func gracefulShutdown(server *http.Server, memStorage *storage.MemStorageData, db *sql.DB) error {
+func gracefulShutdown(server *http.Server, grpcServer *grpc.Server, memStorage *storage.MemStorageData, db *sql.DB) error {
 	logger.Log.Info("Starting graceful shutdown...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -100,6 +117,12 @@ func gracefulShutdown(server *http.Server, memStorage *storage.MemStorageData, d
 		return err
 	}
 	logger.Log.Info("HTTP server stopped")
+
+	// Останавливаем gRPC сервер
+	if grpcServer != nil {
+		grpcServer.GracefulStop()
+		logger.Log.Info("gRPC server stopped")
+	}
 
 	if memStorage != nil {
 		if err := memStorage.SaveData(); err != nil {

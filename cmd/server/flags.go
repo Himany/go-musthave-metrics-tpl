@@ -15,6 +15,7 @@ type envTracker map[string]bool
 
 // Стандратные значения
 const defaultRunAddr = "localhost:8080"
+const defaultGRPCAddr = "localhost:9090"
 const defaultLogLevel = "info"
 const defaultStoreInterval = 300
 const defaultFileStoragePath = "metrics_data"
@@ -23,10 +24,12 @@ const defaultDataBaseDSN = ""
 const defaultAuditFile = ""
 const defaultAuditURL = ""
 const defaultPprofAddr = ""
+const defaultTrustedSubnet = ""
 
 func parseFlags() (*config.Config, error) {
 	envSet := make(envTracker)
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
+	var flagGRPCAddr = flag.String("grpc", defaultGRPCAddr, "address and port to run gRPC server")
 	var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
 	var flagStoreInterval = flag.Int("i", defaultStoreInterval, "time interval in seconds after which the current server readings are saved to disk")
 	var flagFileStoragePath = flag.String("f", defaultFileStoragePath, "the path to the file where the current values are saved")
@@ -38,6 +41,7 @@ func parseFlags() (*config.Config, error) {
 	var flagAuditURL = flag.String("audit-url", defaultAuditURL, "audit URL")
 	var flagPprofAddr = flag.String("pprof-addr", defaultPprofAddr, "enable pprof on the provided address (empty to disable)")
 	var flagCryptoKey = flag.String("crypto-key", "", "path to private key file for asymmetric decryption")
+	var flagTrustedSubnet = flag.String("t", defaultTrustedSubnet, "trusted subnet in CIDR notation")
 	var flagConfigFile = flag.String("c", "", "path to JSON configuration file")
 	var flagConfigFileLong = flag.String("config", "", "path to JSON configuration file")
 
@@ -72,6 +76,7 @@ func parseFlags() (*config.Config, error) {
 	flagConfig := &config.Config{}
 
 	utils.SetStringIfUnset(envSet, "ADDRESS", &flagConfig.Server.Address, *flagRunAddr)
+	utils.SetStringIfUnset(envSet, "GRPC_ADDRESS", &flagConfig.Server.GRPCAddress, *flagGRPCAddr)
 	utils.SetStringIfUnset(envSet, "LOGLEVEL", &flagConfig.LogLevel, *flagLogLevel)
 	utils.SetIntIfUnset(envSet, "STORE_INTERVAL", &flagConfig.Server.StoreInterval, *flagStoreInterval)
 	utils.SetStringIfUnset(envSet, "FILE_STORAGE_PATH", &flagConfig.Storage.FileStoragePath, *flagFileStoragePath)
@@ -82,6 +87,7 @@ func parseFlags() (*config.Config, error) {
 	utils.SetStringIfUnset(envSet, "AUDIT_URL", &flagConfig.Audit.URL, *flagAuditURL)
 	utils.SetStringIfUnset(envSet, "PPROF_ADDR", &flagConfig.Server.PprofAddr, *flagPprofAddr)
 	utils.SetStringIfUnset(envSet, "CRYPTO_KEY", &flagConfig.Security.CryptoKey, *flagCryptoKey)
+	utils.SetStringIfUnset(envSet, "TRUSTED_SUBNET", &flagConfig.Server.TrustedSubnet, *flagTrustedSubnet)
 
 	finalConfig := config.MergeConfigs(flagConfig, configFromFile)
 

@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"time"
 
@@ -16,6 +18,17 @@ import (
 
 var ErrEmptyMetrics = errors.New("empty metrics")
 
+func getOutboundIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
+}
+
 func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*resty.Response, time.Duration, error) {
 	start := time.Now()
 	var lastResp *resty.Response
@@ -24,6 +37,7 @@ func (a *Agent) retryGzipJSONRequest(body []byte, route string, hash []byte) (*r
 		request := a.Client.R().
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Content-Type", "application/json").
+			SetHeader("X-Real-IP", getOutboundIP()).
 			SetBody(body)
 
 		if hash != nil {
@@ -61,6 +75,35 @@ func (a *Agent) createBatchRequest(metrics []models.Metrics) error {
 		return ErrEmptyMetrics
 	}
 
+	// Пытаемся отправить через gRPC, если клиент доступен
+	if a.GRPCClient != nil {
+		err := a.sendBatchViaGRPC(metrics)
+		if err == nil {
+			return nil
+		}
+
+		logger.Log.Warn("Failed to send batch via gRPC, falling back to HTTP", zap.Error(err))
+	}
+
+	return a.sendBatchViaHTTP(metrics)
+}
+
+func (a *Agent) sendBatchViaGRPC(metrics []models.Metrics) error {
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	err := a.GRPCClient.SendMetrics(ctx, metrics)
+	if err == nil {
+		logger.Log.Info("gRPC BATCH",
+			zap.String("address", a.GRPCAddress),
+			zap.Int("metrics_count", len(metrics)))
+	}
+	return err
+}
+
+func (a *Agent) sendBatchViaHTTP(metrics []models.Metrics) error {
 	jsonData, err := json.Marshal(metrics)
 	if err != nil {
 		return err

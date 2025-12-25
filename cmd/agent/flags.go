@@ -15,6 +15,7 @@ type envTracker map[string]bool
 
 // Стандратные значения
 const defaultRunAddr = "localhost:8080"
+const defaultGRPCAddr = "localhost:9090"
 const defaultReportSeconds = 10
 const defaultPollSeconds = 2
 const defaultLogLevel = "info"
@@ -23,6 +24,7 @@ const defaultRateLimit = 0
 func parseConfig() (*config.Config, error) {
 	envSet := make(envTracker)
 	var flagRunAddr = flag.String("a", defaultRunAddr, "address and port to run server")
+	var flagGRPCAddr = flag.String("grpc", defaultGRPCAddr, "address and port of gRPC server")
 	var flagReportSeconds = flag.Int("r", defaultReportSeconds, "report interval in seconds")
 	var flagPollSeconds = flag.Int("p", defaultPollSeconds, "poll interval in seconds")
 	//var flagLogLevel = flag.String("l", defaultLogLevel, "log level")
@@ -63,6 +65,7 @@ func parseConfig() (*config.Config, error) {
 	flagConfig := &config.Config{}
 
 	utils.SetStringIfUnset(envSet, "ADDRESS", &flagConfig.Server.Address, *flagRunAddr)
+	utils.SetStringIfUnset(envSet, "GRPC_ADDRESS", &flagConfig.Server.GRPCAddress, *flagGRPCAddr)
 	utils.SetIntIfUnset(envSet, "REPORT_INTERVAL", &flagConfig.Agent.ReportInterval, *flagReportSeconds)
 	utils.SetIntIfUnset(envSet, "POLL_INTERVAL", &flagConfig.Agent.PollInterval, *flagPollSeconds)
 	utils.SetStringIfUnset(envSet, "LOG_LEVEL", &flagConfig.LogLevel, defaultLogLevel)
