@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,6 +22,10 @@ type GRPCClient struct {
 	client pb.MetricsClient
 	conn   *grpc.ClientConn
 	logger *zap.Logger
+
+	// Кешированный IP адрес
+	cachedIP   string
+	ipCacheMux sync.RWMutex
 }
 
 // NewGRPCClient создает новый gRPC клиент
@@ -43,6 +49,36 @@ func NewGRPCClient(address string, logger *zap.Logger) (*GRPCClient, error) {
 		conn:   conn,
 		logger: logger,
 	}, nil
+}
+
+// getLocalIP получает IP адрес с кешированием
+func (c *GRPCClient) getLocalIP() string {
+	c.ipCacheMux.RLock()
+	if c.cachedIP != "" {
+		defer c.ipCacheMux.RUnlock()
+		return c.cachedIP
+	}
+	c.ipCacheMux.RUnlock()
+
+	c.ipCacheMux.Lock()
+	defer c.ipCacheMux.Unlock()
+
+	// Проверяем еще раз после получения блокировки записи
+	if c.cachedIP != "" {
+		return c.cachedIP
+	}
+
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		c.logger.Warn("Failed to get outbound IP", zap.Error(err))
+		c.cachedIP = "unknown"
+		return c.cachedIP
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	c.cachedIP = localAddr.IP.String()
+	return c.cachedIP
 }
 
 // Close закрывает соединение с gRPC сервером
@@ -90,11 +126,7 @@ func (c *GRPCClient) SendMetrics(ctx context.Context, metrics []models.Metrics) 
 		return nil
 	}
 
-	localIP := getOutboundIP()
-	if localIP == "" {
-		c.logger.Warn("Failed to get local IP")
-		localIP = "unknown"
-	}
+	localIP := c.getLocalIP()
 
 	ctx = metadata.AppendToOutgoingContext(ctx, "x-real-ip", localIP)
 
@@ -107,10 +139,10 @@ func (c *GRPCClient) SendMetrics(ctx context.Context, metrics []models.Metrics) 
 		zap.String("client_ip", localIP))
 
 	// Устанавливаем таймаут для gRPC запроса
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	requestCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	_, err := c.client.UpdateMetrics(ctx, req)
+	_, err := c.client.UpdateMetrics(requestCtx, req)
 	if err != nil {
 		c.logger.Error("Failed to send metrics via gRPC", zap.Error(err))
 		return fmt.Errorf("failed to send metrics: %w", err)

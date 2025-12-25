@@ -112,8 +112,15 @@ func (s *GRPCServer) isIPInTrustedSubnet(ipStr string) bool {
 	return trustedNet.Contains(net.IP(clientIP.AsSlice()))
 }
 
-// StartGRPCServer запускает gRPC сервер
-func StartGRPCServer(address string, storage repository.MetricsRepo, logger *zap.Logger, trustedSubnet string) (*grpc.Server, error) {
+// GRPCServerWithListener содержит gRPC сервер и его слушатель
+type GRPCServerWithListener struct {
+	Server   *grpc.Server
+	Listener net.Listener
+	Logger   *zap.Logger
+}
+
+// NewGRPCServerWithListener создает новый gRPC сервер без запуска
+func NewGRPCServerWithListener(address string, storage repository.MetricsRepo, logger *zap.Logger, trustedSubnet string) (*GRPCServerWithListener, error) {
 	address = strings.TrimPrefix(address, "http://")
 	address = strings.TrimPrefix(address, "https://")
 
@@ -134,13 +141,37 @@ func StartGRPCServer(address string, storage repository.MetricsRepo, logger *zap
 
 	pb.RegisterMetricsServer(server, grpcServer)
 
-	logger.Info("Starting gRPC server", zap.String("address", address))
+	logger.Info("gRPC server created", zap.String("address", address))
 
+	return &GRPCServerWithListener{
+		Server:   server,
+		Listener: listener,
+		Logger:   logger,
+	}, nil
+}
+
+// Start запускает gRPC сервер
+func (s *GRPCServerWithListener) Start() error {
+	s.Logger.Info("Starting gRPC server", zap.String("address", s.Listener.Addr().String()))
+	return s.Server.Serve(s.Listener)
+}
+
+// StartInBackground запускает gRPC сервер в горутине
+func (s *GRPCServerWithListener) StartInBackground() {
 	go func() {
-		if err := server.Serve(listener); err != nil {
-			logger.Error("gRPC server failed", zap.Error(err))
+		if err := s.Start(); err != nil {
+			s.Logger.Error("gRPC server failed", zap.Error(err))
 		}
 	}()
+}
 
-	return server, nil
+// StartGRPCServer запускает gRPC сервер
+func StartGRPCServer(address string, storage repository.MetricsRepo, logger *zap.Logger, trustedSubnet string) (*grpc.Server, error) {
+	serverWithListener, err := NewGRPCServerWithListener(address, storage, logger, trustedSubnet)
+	if err != nil {
+		return nil, err
+	}
+
+	serverWithListener.StartInBackground()
+	return serverWithListener.Server, nil
 }
